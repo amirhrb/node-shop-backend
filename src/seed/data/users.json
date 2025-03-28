@@ -1,0 +1,49 @@
+{
+  "users": [
+    {
+      "username": "superadmin",
+      "firstName": "Super",
+      "lastName": "Admin",
+      "email": "superadmin@ebuy.com",
+      "phone": "09121111111",
+      "password": "SuperAdmin@123",
+      "role": "super-admin"
+    },
+    {
+      "username": "admin",
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "admin@ebuy.com",
+      "phone": "09122222222",
+      "password": "Admin@123",
+      "role": "admin"
+    },
+    {
+      "username": "customer1",
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john@ebuy.com",
+      "phone": "09123333333",
+      "password": "Customer@123",
+      "role": "user"
+    },
+    {
+      "username": "customer2",
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "email": "jane@ebuy.com",
+      "phone": "09124444444",
+      "password": "Customer@123",
+      "role": "user"
+    },
+    {
+      "username": "customer3",
+      "firstName": "Bob",
+      "lastName": "Wilson",
+      "email": "bob@ebuy.com",
+      "phone": "09125555555",
+      "password": "Customer@123",
+      "role": "user"
+    }
+  ]
+}

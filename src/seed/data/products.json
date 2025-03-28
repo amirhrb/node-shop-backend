@@ -1,0 +1,79 @@
+{
+  "products": [
+    {
+      "name": "Smartphone X",
+      "description": "Latest smartphone with advanced features",
+      "price": 12000000,
+      "currency": "IRR",
+      "stockQuantity": 50,
+      "category": "Electronics",
+      "images": ["default.jpg"],
+      "specifications": {
+        "screen": "6.5 inch",
+        "battery": "4500mAh",
+        "storage": "128GB"
+      },
+      "tags": ["smartphone", "electronics", "mobile"]
+    },
+    {
+      "name": "Laptop Pro",
+      "description": "Professional laptop for developers",
+      "price": 35000000,
+      "currency": "IRR",
+      "stockQuantity": 20,
+      "category": "Electronics",
+      "images": ["default.jpg"],
+      "specifications": {
+        "processor": "Intel i7",
+        "ram": "16GB",
+        "storage": "512GB SSD"
+      },
+      "tags": ["laptop", "electronics", "computer"]
+    },
+    {
+      "name": "Wireless Earbuds",
+      "description": "High-quality wireless earbuds with noise cancellation",
+      "price": 2500000,
+      "currency": "IRR",
+      "stockQuantity": 100,
+      "category": "Electronics",
+      "images": ["default.jpg"],
+      "specifications": {
+        "battery": "24 hours",
+        "connectivity": "Bluetooth 5.0",
+        "features": "Active Noise Cancellation"
+      },
+      "tags": ["audio", "electronics", "wireless"]
+    },
+    {
+      "name": "Smart Watch",
+      "description": "Fitness and health tracking smartwatch",
+      "price": 4500000,
+      "currency": "IRR",
+      "stockQuantity": 30,
+      "category": "Electronics",
+      "images": ["default.jpg"],
+      "specifications": {
+        "screen": "1.4 inch AMOLED",
+        "battery": "7 days",
+        "waterproof": "5ATM"
+      },
+      "tags": ["wearable", "electronics", "fitness"]
+    },
+    {
+      "name": "Gaming Console",
+      "description": "Next-gen gaming console with 4K support",
+      "price": 15000000,
+      "currency": "IRR",
+      "stockQuantity": 15,
+      "category": "Electronics",
+      "images": ["default.jpg"],
+      "specifications": {
+        "resolution": "4K",
+        "storage": "1TB",
+        "features": "Ray Tracing"
+      },
+      "tags": ["gaming", "electronics", "entertainment"]
+    }
+  ]
+}
