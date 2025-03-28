@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2020", // Target JavaScript version
+    "target": "es2016", // Target JavaScript version
     "module": "commonjs", // Module system (CommonJS for Node.js)
     "outDir": "./dist", // Output directory for compiled files
     "rootDir": "./src", // Source directory
@@ -8,8 +8,10 @@
     "esModuleInterop": true, // Enable ES module interop
     "skipLibCheck": true, // Skip type checking of declaration files
     "forceConsistentCasingInFileNames": true, // Ensure consistent casing in file names
-    "typeRoots": ["src/types", "./node_modules/@types"]
+    "typeRoots": ["src/types", "./node_modules/@types"],
+    "resolveJsonModule": true,
+    "moduleResolution": "node"
   },
   "include": ["src/**/*"], // Include all files in the src directory
-  "exclude": ["node_modules"] // Exclude node_modules
+  "exclude": ["node_modules", "dist"] // Exclude node_modules and dist
 }
