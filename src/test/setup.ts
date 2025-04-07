@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import { v4 as uuidv4 } from "uuid";
 
 // Mock mongoose connect and connection methods
 jest.mock("mongoose", () => {
@@ -25,32 +26,36 @@ jest.mock("mongoose", () => {
 dotenv.config({ path: ".env.test" });
 
 // Mock Zarinpal module
-jest.mock("zarinpal-checkout", () => ({
-  create: jest.fn().mockReturnValue({
-    PaymentRequest: jest.fn().mockImplementation(({ Amount }) => {
-      if (Amount <= 0) {
-        return Promise.resolve({ status: -9, message: "Invalid amount" });
-      }
-      return Promise.resolve({
-        status: 100,
-        url: "https://sandbox.zarinpal.com/pg/StartPay/test-authority",
-        authority: "test-authority",
-      });
-    }),
-    PaymentVerification: jest.fn().mockImplementation(({ Authority }) => {
-      if (Authority === "test-authority") {
-        return Promise.resolve({
-          status: 100,
-          RefID: "test-ref-id",
-        });
-      }
-      return Promise.resolve({
-        status: -21,
-        message: "Failed or cancelled",
-      });
-    }),
-  }),
-}));
+jest.mock("zarinpal-node-sdk", () => {
+  return jest.fn().mockImplementation(() => ({
+    payments: {
+      create: jest.fn().mockReturnValue({
+        data: {
+          code: 100,
+          message: "Payment initiated successfully",
+          authority: uuidv4(),
+          fee_type: "Merchant",
+          fee: 0,
+        },
+        errors: null,
+      }),
+    },
+    verifications: {
+      verify: jest.fn().mockReturnValue({
+        data: {
+          code: 100,
+          message: "Payment successful",
+          ref_id: 123456789,
+          card_pan: "6037***1234",
+          card_hash: "A1B2C3D4E5F6G7H8",
+          fee_type: "Merchant",
+          fee: 0,
+        },
+        errors: null,
+      }),
+    },
+  }));
+});
 
 // Setup function to run before all tests
 beforeAll(async () => {

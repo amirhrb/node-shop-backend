@@ -15,7 +15,7 @@ class SMS {
   private to: string;
   private firstName: string;
   private url: string;
-  private melipayamak: any;
+  private melipayamak: Melipayamak;
 
   constructor(user: IUser, url: string) {
     this.to = user.phone;
@@ -30,8 +30,8 @@ class SMS {
   private send = async (
     template: string,
     subject: string,
-    data?: Record<string, any>
-  ) => {
+    data?: Record<string, unknown>
+  ): Promise<void> => {
     try {
       // Render HTML based on pug template
       const html = pug.renderFile(
@@ -63,10 +63,14 @@ class SMS {
     }
   };
 
-  private async sendSMS(options: SMSOptions) {
+  private async sendSMS(options: SMSOptions): Promise<void> {
     try {
       const sms = this.melipayamak.sms();
-      await sms.send(options.to, process.env.MELIPAYAMAK_NUMBER, options.text);
+      await sms.send(
+        options.to,
+        process.env.MELIPAYAMAK_NUMBER as string,
+        options.text
+      );
       logger.info(`SMS sent successfully to ${options.to}`);
     } catch (error) {
       logger.error("Error sending SMS:", error);
@@ -74,11 +78,11 @@ class SMS {
     }
   }
 
-  sendWelcome = async () => {
+  sendWelcome = async (): Promise<void> => {
     await this.send("welcome", "Welcome to E-Buy family");
   };
 
-  sendVerification = async () => {
+  sendVerification = async (): Promise<void> => {
     if (this.url.length <= 6) {
       // If url is actually a verification code
       const text = `Your E-Buy verification code is: ${this.url}\nValid for 15 minutes.`;
@@ -92,14 +96,14 @@ class SMS {
     }
   };
 
-  sendResetPassword = async () => {
+  sendResetPassword = async (): Promise<void> => {
     await this.send(
       "passwordReset",
       "E-Buy Account Reset Password (valid for 10 min)"
     );
   };
 
-  sendShipped = async (order: Record<string, any>) => {
+  sendShipped = async (order: Record<string, unknown>): Promise<void> => {
     await this.send("orderShipped", "Order Status Update", order);
   };
 }

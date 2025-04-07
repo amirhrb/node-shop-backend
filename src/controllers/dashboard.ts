@@ -2,7 +2,11 @@ import { NextFunction, Request, Response } from "express";
 import Order from "../models/order";
 
 class Dashboard {
-  getSales = async (req: Request, res: Response, next: NextFunction) => {
+  getSales = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const salesData = await Order.aggregate([
         {
@@ -59,7 +63,7 @@ class Dashboard {
     req: Request,
     res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     try {
       const topProducts = await Order.aggregate([
         {
@@ -129,7 +133,7 @@ class Dashboard {
     req: Request,
     res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     try {
       const data = await Order.aggregate([
         {
@@ -162,7 +166,11 @@ class Dashboard {
     }
   };
 
-  getOrdersStats = async (req: Request, res: Response, next: NextFunction) => {
+  getOrdersStats = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const orderStatus = await Order.aggregate([
         {
@@ -210,7 +218,7 @@ class Dashboard {
     req: Request,
     res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     try {
       const categoryRevenue = await Order.aggregate([
         {

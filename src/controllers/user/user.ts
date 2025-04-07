@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { Request, Response, NextFunction } from "express";
 import User, { IUser } from "../../models/user/user";
 import BaseController from "../helpers/base";
@@ -9,12 +8,20 @@ class UserController extends BaseController<IUser> {
     super(User);
   }
 
-  getMe = async (req: Request, res: Response, next: NextFunction) => {
+  getMe = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     req.params.id = req.user.id;
     return await this.getOne({ path: "profile address" })(req, res, next);
   };
 
-  updateMe = async (req: Request, res: Response, next: NextFunction) => {
+  updateMe = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       if (req.body.password) {
         return next(
@@ -43,7 +50,11 @@ class UserController extends BaseController<IUser> {
     }
   };
 
-  deleteMe = async (req: Request, res: Response, next: NextFunction) => {
+  deleteMe = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { id } = req.user;
 
@@ -56,7 +67,11 @@ class UserController extends BaseController<IUser> {
 
   getAllUsers = this.getAll();
   getUserByID = this.getOne();
-  updateUser = async (req: Request, res: Response, next: NextFunction) => {
+  updateUser = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       // Remove sensitive fields that should not be updated by regular admins
       delete req.body.password;

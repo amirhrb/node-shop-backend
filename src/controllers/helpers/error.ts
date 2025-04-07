@@ -1,24 +1,24 @@
-/* eslint-disable no-unused-vars */
 import { Request, Response, NextFunction } from "express";
 import AppError from "../../utils/error";
-import { MongooseError } from "mongoose";
+import { MongooseError, CastError } from "mongoose";
 
 /** Global error handling middleware for sending the error in both development and production */
 export default function (
   err: AppError | Error,
-  req: Request,
+  _req: Request,
   res: Response,
-  next: NextFunction,
-) {
+  _next: NextFunction
+): void {
   if (process.env.NODE_ENV === "production") {
     // Create a new error object, preserving the prototype chain
     // this is used as spread operator as well as Object.assign did not work for prototype chain
     let error: AppError | MongooseError | Error = Object.create(
       Object.getPrototypeOf(err),
-      Object.getOwnPropertyDescriptors(err),
+      Object.getOwnPropertyDescriptors(err)
     );
 
-    if (error.name === "CastError") error = handleCastError(error);
+    if (error instanceof MongooseError && error.name === "CastError")
+      error = handleCastError(error as CastError);
     if (error.name === "ValidationError") error = handleValidationError(error);
     // this error is specific to mongo not to mongoose so i need to extract the code of duplicate error from the massage
     if (error.message.match(/E11000/g)) error = handleDuplicateFieldsDB(error);
@@ -31,7 +31,7 @@ export default function (
   }
 }
 
-function sendErrorProd(err: AppError | Error, res: Response) {
+function sendErrorProd(err: AppError | Error, res: Response): Response {
   // In production, only send the error message and status code
   let statusCode = 500;
   let status = "error";
@@ -50,7 +50,7 @@ function sendErrorProd(err: AppError | Error, res: Response) {
   }
 }
 
-function sendErrorDev(err: AppError | Error, res: Response) {
+function sendErrorDev(err: AppError | Error, res: Response): Response {
   // In development, send the entire error object
   let statusCode: number = 500;
   if (err instanceof AppError) {
@@ -63,22 +63,26 @@ function sendErrorDev(err: AppError | Error, res: Response) {
   });
 }
 
-function handleCastError(error: any): AppError {
+function handleCastError(error: CastError): AppError {
   const message = `Invalid ${error.path}: ${error.value}`;
   return new AppError(message, 400);
 }
 
-function handleValidationError(error: any): AppError {
+function handleValidationError(
+  error: MongooseError & { message: string }
+): AppError {
   return new AppError(error.message, 400);
 }
 
-function handleDuplicateFieldsDB(err: any): AppError {
+function handleDuplicateFieldsDB(
+  err: Error & { message: string; code?: number }
+): AppError {
   // Extract the duplicate keys and values from the error message
   const matches = err.message.match(/dup key: {([^}]+)}/);
   if (!matches) {
     return new AppError(
       "Duplicate field value(s). Please use another value(s)!",
-      400,
+      400
     );
   }
   const fields = matches[1].split(",").map((field: string) => field.trim());
@@ -89,7 +93,9 @@ function handleDuplicateFieldsDB(err: any): AppError {
     return `${key}: ${value}`;
   });
 
-  const message = `Duplicate field value(s): ${fieldMessages.join(", ")}. Please use another value(s)!`;
+  const message = `Duplicate field value(s): ${fieldMessages.join(
+    ", "
+  )}. Please use another value(s)!`;
   return new AppError(message, 400);
 }
 

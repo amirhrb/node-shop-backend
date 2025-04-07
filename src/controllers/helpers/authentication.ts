@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import crypto from "crypto";
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
@@ -9,26 +8,35 @@ import mongoose from "mongoose";
 import RefreshToken from "../../models/user/tokens";
 import Role from "../../models/user/role";
 import Permission from "../../models/user/permission";
-import { IRole } from "../../models/user/role";
 import { SignOptions } from "jsonwebtoken";
+import { PermissionAction, ResourceType } from "../../models/user/permission";
+import { hasPermission } from "../../utils/check-permission";
 
 interface JwtPayload {
   id: string;
   iat: number;
+  exp: number;
 }
 
 class Authentication {
   constructor() {}
 
-  generateToken = (data: any, secret: string, expiresIn: string): string => {
+  private generateToken = (
+    data: { id: string },
+    secret: string,
+    expiresIn: string
+  ): string => {
     return jwt.sign(data, secret, {
       expiresIn,
     } as SignOptions);
   };
 
-  verifyToken = async (token: string, secret: string): Promise<JwtPayload> => {
+  private verifyToken = async (
+    token: string,
+    secret: string
+  ): Promise<JwtPayload> => {
     return new Promise((resolve, reject) => {
-      jwt.verify(token, secret, (err: any, decoded: any) => {
+      jwt.verify(token, secret, (err, decoded) => {
         if (err) {
           reject(err);
         } else {
@@ -38,8 +46,12 @@ class Authentication {
     });
   };
 
-  sendAccessTokenCookie = (token: string, req: Request, res: Response) => {
-    const cookieExpiresIn = process.env.JWT_ACCESS_COOKIE_EXPIRES_IN || "1d";
+  private sendAccessTokenCookie = (
+    token: string,
+    req: Request,
+    res: Response
+  ): void => {
+    const cookieExpiresIn = process.env.JWT_ACCESS_EXPIRES_IN || "1d";
     const days = parseInt(cookieExpiresIn.replace("d", ""));
 
     const cookieOptions = {
@@ -48,11 +60,15 @@ class Authentication {
       secure: req.secure || req.headers["x-forwarded-proto"] === "https",
     };
 
-    res.cookie("jwt", token, cookieOptions);
+    res.cookie("access_token", token, cookieOptions);
   };
 
-  sendRefreshTokenCookie = (token: string, req: Request, res: Response) => {
-    const cookieExpiresIn = process.env.JWT_REFRESH_COOKIE_EXPIRES_IN || "7d";
+  private sendRefreshTokenCookie = (
+    token: string,
+    req: Request,
+    res: Response
+  ): void => {
+    const cookieExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
     const days = parseInt(cookieExpiresIn.replace("d", ""));
 
     const cookieOptions = {
@@ -69,7 +85,7 @@ class Authentication {
     req: Request,
     res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -130,7 +146,11 @@ class Authentication {
     }
   };
 
-  verifyCode = async (req: Request, res: Response, next: NextFunction) => {
+  verifyCode = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { userId, code } = req.body;
 
@@ -141,10 +161,20 @@ class Authentication {
       }
 
       const user = await User.findById(userId).select(
-        "+phoneVerificationToken +phoneVerificationExpires"
+        "+phoneVerificationToken +phoneVerificationExpires +loginAttempts +loginExpires +lastLoginAttempt"
       );
       if (!user) {
         return next(new AppError("User not found", 404));
+      }
+
+      // Check login attempts and lockout
+      if (!user.checkLogin()) {
+        return next(
+          new AppError(
+            "Too many login attempts. Account locked for 1 hour.",
+            429
+          )
+        );
       }
 
       const hashedToken = crypto
@@ -157,12 +187,16 @@ class Authentication {
         !user.phoneVerificationExpires ||
         user.phoneVerificationExpires < new Date()
       ) {
+        await user.save(); // Save the failed attempt
         return next(new AppError("Invalid or expired verification code", 400));
       }
 
-      // Clear verification data
+      // Clear verification data and reset login attempts
       user.phoneVerificationToken = undefined;
       user.phoneVerificationExpires = undefined;
+      user.loginAttempts = 0;
+      user.loginExpires = undefined;
+      user.lastLoginAttempt = new Date();
 
       if (!user.isVerified) {
         user.isVerified = true;
@@ -170,14 +204,15 @@ class Authentication {
 
       await user.save();
 
-      // Generate tokens
+      // Generate new token pair
       const accessToken = this.generateToken(
-        { id: user._id },
+        { id: user.id.toString() },
         process.env.JWT_SECRET as string,
         process.env.JWT_ACCESS_EXPIRES_IN as string
       );
+
       const refreshToken = this.generateToken(
-        { id: user._id },
+        { id: user.id.toString() },
         process.env.JWT_REFRESH_SECRET as string,
         process.env.JWT_REFRESH_EXPIRES_IN as string
       );
@@ -205,7 +240,11 @@ class Authentication {
     }
   };
 
-  refreshToken = async (req: Request, res: Response, next: NextFunction) => {
+  refreshToken = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const refreshToken = req.cookies.refresh_token;
       const clientFingerprint = {
@@ -250,13 +289,13 @@ class Authentication {
 
       // Generate new token pair
       const newAccessToken = this.generateToken(
-        { id: user._id },
+        { id: user.id.toString() },
         process.env.JWT_SECRET as string,
         process.env.JWT_ACCESS_EXPIRES_IN as string
       );
 
       const newRefreshToken = this.generateToken(
-        { id: user._id },
+        { id: user.id.toString() },
         process.env.JWT_REFRESH_SECRET as string,
         process.env.JWT_REFRESH_EXPIRES_IN as string
       );
@@ -281,7 +320,11 @@ class Authentication {
     }
   };
 
-  logout = async (req: Request, res: Response, next: NextFunction) => {
+  logout = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { refreshToken } = req.body;
 
@@ -289,7 +332,7 @@ class Authentication {
         await RefreshToken.findOneAndDelete({ refreshToken });
       }
 
-      res.cookie("jwt", "loggedout", {
+      res.cookie("access_token", "loggedout", {
         expires: new Date(Date.now() + 10 * 1000),
         httpOnly: true,
       });
@@ -303,13 +346,17 @@ class Authentication {
     }
   };
 
-  logoutAll = async (req: Request, res: Response, next: NextFunction) => {
+  logoutAll = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { id } = req.user;
 
       await RefreshToken.deleteMany({ user: id });
 
-      res.cookie("jwt", "loggedout", {
+      res.cookie("access_token", "loggedout", {
         expires: new Date(Date.now() + 10 * 1000),
         httpOnly: true,
       });
@@ -323,11 +370,15 @@ class Authentication {
     }
   };
 
-  protect = async (req: Request, res: Response, next: NextFunction) => {
+  protect = async (
+    req: Request,
+    _res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       let token;
-      if (req.cookies.jwt) {
-        token = req.cookies.jwt;
+      if (req.cookies.access_token) {
+        token = req.cookies.access_token;
       } else if (
         req.headers.authorization &&
         req.headers.authorization.startsWith("Bearer")
@@ -367,8 +418,20 @@ class Authentication {
     }
   };
 
-  restrictTo(...roles: string[]) {
-    return (req: Request, res: Response, next: NextFunction) => {
+  restrictTo(
+    action: PermissionAction,
+    resource: ResourceType,
+    _conditions?: {
+      ownerOnly?: boolean;
+      department?: string[];
+      status?: string[];
+    }
+  ) {
+    return async (
+      req: Request,
+      _res: Response,
+      next: NextFunction
+    ): Promise<void> => {
       try {
         const { user } = req;
         if (!user) {
@@ -380,41 +443,126 @@ class Authentication {
           );
         }
 
-        // Check if user has required roles
-        User.findById(user.id)
-          .populate({
-            path: "roles",
-            select: "name",
-          })
-          .then((foundUser) => {
-            if (!foundUser) {
-              return next(new AppError("User not found", 404));
-            }
+        // Get resource data for condition checking
+        const resourceData = {
+          ownerId: req.params.userId
+            ? new mongoose.Types.ObjectId(req.params.userId)
+            : undefined,
+          status: req.body.status || (req.query.status as string),
+          department: user.department,
+        };
 
-            const userRoles = foundUser.roles as unknown as IRole[];
-            const hasRole = userRoles.some((role) => roles.includes(role.name));
+        const hasAccess = await hasPermission(
+          user,
+          { action, resource },
+          resourceData
+        );
 
-            if (!hasRole) {
-              return next(
-                new AppError(
-                  "You do not have permission to perform this action",
-                  403
-                )
-              );
-            }
+        if (!hasAccess) {
+          return next(
+            new AppError(
+              "You do not have permission to perform this action",
+              403
+            )
+          );
+        }
 
-            next();
-          })
-          .catch((error) => {
-            next(error);
-          });
+        next();
       } catch (error) {
         next(error);
       }
     };
   }
 
-  updateProfile = async (req: Request, res: Response, next: NextFunction) => {
+  // New method to check if user has any of the specified permissions
+  hasAnyPermission(
+    permissions: { action: PermissionAction; resource: ResourceType }[]
+  ) {
+    return async (
+      req: Request,
+      _res: Response,
+      next: NextFunction
+    ): Promise<void> => {
+      try {
+        const { user } = req;
+        if (!user) {
+          return next(
+            new AppError(
+              "You are not logged in! Please log in to get access.",
+              401
+            )
+          );
+        }
+
+        const permissionChecks = await Promise.all(
+          permissions.map(({ action, resource }) =>
+            hasPermission(user, { action, resource })
+          )
+        );
+
+        if (!permissionChecks.some(Boolean)) {
+          return next(
+            new AppError(
+              "You do not have permission to perform this action",
+              403
+            )
+          );
+        }
+
+        next();
+      } catch (error) {
+        next(error);
+      }
+    };
+  }
+
+  // New method to check if user has all of the specified permissions
+  hasAllPermissions(
+    permissions: { action: PermissionAction; resource: ResourceType }[]
+  ) {
+    return async (
+      req: Request,
+      _res: Response,
+      next: NextFunction
+    ): Promise<void> => {
+      try {
+        const { user } = req;
+        if (!user) {
+          return next(
+            new AppError(
+              "You are not logged in! Please log in to get access.",
+              401
+            )
+          );
+        }
+
+        const hasAllPermissions = await Promise.all(
+          permissions.map(({ action, resource }) =>
+            hasPermission(user, { action, resource })
+          )
+        );
+
+        if (!hasAllPermissions.every(Boolean)) {
+          return next(
+            new AppError(
+              "You do not have permission to perform this action",
+              403
+            )
+          );
+        }
+
+        next();
+      } catch (error) {
+        next(error);
+      }
+    };
+  }
+
+  updateProfile = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { firstName, lastName, username, email } = req.body;
       const { id } = req.user;
@@ -444,119 +592,404 @@ class Authentication {
     }
   };
 
-  promoteToAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  promoteToAdmin = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
-      const { userId }: {userId: string} = req.body;
+      const { userId, roleType = "admin" } = req.body;
 
       if (!userId) {
         return next(new AppError("User ID is required", 400));
       }
 
-      // Find the target user
-      const targetUser = await User.findById(userId);
-      if (!targetUser) {
-        return next(new AppError("User not found", 404));
+      if (!["admin", "superAdmin"].includes(roleType)) {
+        return next(
+          new AppError(
+            "Invalid role type. Must be 'admin' or 'superAdmin'",
+            400
+          )
+        );
       }
 
-      // Find or create admin role
-      let adminRole = await Role.findOne({ name: "admin" });
-      if (!adminRole) {
-        adminRole = await Role.create({
-          name: "admin",
-          users: [targetUser._id],
-        });
-      } else {
-        // Check if user is already an admin
-        const isAlreadyAdmin = targetUser.roles.some(
-          (role) => adminRole && role.toString() === adminRole._id.toString()
-        );
-        if (isAlreadyAdmin) {
-          return next(new AppError("User is already an admin", 400));
+      const session = await mongoose.startSession();
+      session.startTransaction();
+
+      try {
+        // Find the target user
+        const targetUser = await User.findById(userId).session(session);
+        if (!targetUser) {
+          await session.abortTransaction();
+          session.endSession();
+          return next(new AppError("User not found", 404));
         }
-        adminRole.users.push(
-          targetUser._id as unknown as mongoose.Types.ObjectId
-        );
-        await adminRole.save();
-      }
 
-      // Find or create admin permission
-      let adminPermission = await Permission.findOne({
-        name: "admin",
-        roles: adminRole._id,
-      });
-      if (!adminPermission) {
-        adminPermission = await Permission.create({
-          name: "admin",
-          roles: [adminRole._id],
+        // Find or create the specified role
+        let adminRole = await Role.findOne({ name: roleType }).session(session);
+        if (!adminRole) {
+          const newRoles = await Role.create(
+            [
+              {
+                name: roleType,
+                description:
+                  roleType === "admin"
+                    ? "Administrator with elevated permissions"
+                    : "Super Administrator with full system access",
+                isDefault: false,
+                users: [targetUser._id],
+              },
+            ],
+            { session }
+          );
+          adminRole = newRoles[0];
+        } else {
+          // Check if user already has this role
+          const isAlreadyAdmin = targetUser.roles.some(
+            (role) => role.toString() === adminRole!._id.toString()
+          );
+
+          if (isAlreadyAdmin) {
+            await session.abortTransaction();
+            session.endSession();
+            return next(
+              new AppError(`User already has the ${roleType} role`, 400)
+            );
+          }
+        }
+
+        // Find existing admin permissions
+        const adminPermissions = await Permission.find({
+          action: PermissionAction.MANAGE,
+          roles: adminRole._id,
+        }).session(session);
+
+        // If no admin permissions exist, create them
+        if (adminPermissions.length === 0) {
+          const newPermissions = await Permission.create(
+            Object.values(ResourceType).map((resource) => ({
+              name: `${resource}:manage`,
+              description: `Manage ${resource}`,
+              action: PermissionAction.MANAGE,
+              resource,
+              roles: [adminRole!._id],
+            })),
+            { session }
+          );
+
+          // Add permissions to role
+          adminRole.permissions = newPermissions.map((p) => p._id);
+          await adminRole.save({ session });
+
+          // Add permissions to user
+          targetUser.permissions.push(...newPermissions.map((p) => p._id));
+        } else {
+          // Add existing permissions to user
+          const permissionIds = adminPermissions.map((p) => p._id);
+          targetUser.permissions.push(
+            ...permissionIds.filter(
+              (id) =>
+                !targetUser.permissions.some(
+                  (p) => p.toString() === id.toString()
+                )
+            )
+          );
+        }
+
+        // Add user to role's users array if not already there
+        if (!adminRole.users.includes(targetUser._id)) {
+          adminRole.users.push(targetUser._id);
+          await adminRole.save({ session });
+        }
+
+        // Add role to user
+        targetUser.roles.push(adminRole._id);
+        await targetUser.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({
+          status: "success",
+          message: `User promoted to ${roleType} successfully`,
         });
+      } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        next(error);
       }
-
-      // Add admin role and permission to user
-      targetUser.roles = [...targetUser.roles, adminRole._id];
-      targetUser.permissions = [...targetUser.permissions, adminPermission._id];
-      await targetUser.save();
-
-      res.status(200).json({
-        status: "success",
-        message: "User promoted to admin successfully",
-      });
     } catch (error) {
       next(error);
     }
   };
 
-  demoteToUser = async (req: Request, res: Response, next: NextFunction) => {
+  demoteFromRole = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
-      const { userId } = req.body;
+      const { userId, roleType = "admin" } = req.body;
 
       if (!userId) {
         return next(new AppError("User ID is required", 400));
       }
 
-      // Find the target user
-      const targetUser = await User.findById(userId);
+      if (!["admin", "superAdmin"].includes(roleType)) {
+        return next(
+          new AppError(
+            "Invalid role type. Must be 'admin' or 'superAdmin'",
+            400
+          )
+        );
+      }
+
+      const session = await mongoose.startSession();
+      session.startTransaction();
+
+      try {
+        // Find the target user
+        const targetUser = await User.findById(userId)
+          .populate("roles")
+          .populate("permissions")
+          .session(session);
+
+        if (!targetUser) {
+          await session.abortTransaction();
+          session.endSession();
+          return next(new AppError("User not found", 404));
+        }
+
+        // Find role
+        const role = await Role.findOne({ name: roleType })
+          .populate("permissions")
+          .session(session);
+
+        if (!role) {
+          await session.abortTransaction();
+          session.endSession();
+          return next(new AppError(`${roleType} role not found`, 404));
+        }
+
+        // Check if user has the role
+        const hasRole = targetUser.roles.some(
+          (r) => r._id.toString() === role._id.toString()
+        );
+
+        if (!hasRole) {
+          await session.abortTransaction();
+          session.endSession();
+          return next(
+            new AppError(`User does not have the ${roleType} role`, 400)
+          );
+        }
+
+        // Get permission IDs to remove
+        const rolePermissionIds = role.permissions.map((p) => p._id.toString());
+
+        // Remove role from user
+        targetUser.roles = targetUser.roles.filter(
+          (r) => r._id.toString() !== role._id.toString()
+        );
+
+        // Remove role's permissions from user (only those that aren't part of other roles)
+        const otherRoles = targetUser.roles as mongoose.Types.ObjectId[];
+        const otherRoleIds = otherRoles.map((r) => r._id.toString());
+
+        // Get all permissions from user's other roles
+        const otherRolesPermissions = await Permission.find({
+          roles: { $in: otherRoleIds },
+        }).session(session);
+
+        const otherRolesPermissionIds = otherRolesPermissions.map((p) =>
+          p._id.toString()
+        );
+
+        // Filter out permissions that are unique to the removed role
+        targetUser.permissions = targetUser.permissions.filter(
+          (p) =>
+            !rolePermissionIds.includes(p._id.toString()) ||
+            otherRolesPermissionIds.includes(p._id.toString())
+        );
+
+        // Remove user from role's users array
+        role.users = role.users.filter(
+          (u) => u.toString() !== targetUser._id.toString()
+        );
+
+        // Save changes
+        await Promise.all([
+          targetUser.save({ session }),
+          role.save({ session }),
+        ]);
+
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({
+          status: "success",
+          message: `User demoted from ${roleType} role successfully`,
+        });
+      } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        next(error);
+      }
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  manageUserPermissions = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const {
+        userId,
+        permissionsToAdd = [],
+        permissionsToRemove = [],
+      } = req.body;
+
+      if (!userId) {
+        return next(new AppError("User ID is required", 400));
+      }
+
+      if (
+        !Array.isArray(permissionsToAdd) ||
+        !Array.isArray(permissionsToRemove)
+      ) {
+        return next(
+          new AppError("Permissions must be provided as arrays", 400)
+        );
+      }
+
+      // Find the target user with populated permissions
+      const targetUser = await User.findById(userId).populate("permissions");
       if (!targetUser) {
         return next(new AppError("User not found", 404));
       }
 
-      // Find admin role and permission
-      const adminRole = await Role.findOne({ name: "admin" });
-      const adminPermission = await Permission.findOne({ name: "admin" });
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-      if (!adminRole || !adminPermission) {
-        return next(new AppError("Admin role or permission not found", 404));
+      try {
+        // Handle permissions to add
+        const permissionsToAddDocs = [];
+        if (permissionsToAdd.length > 0) {
+          // Validate each permission to add
+          for (const permission of permissionsToAdd) {
+            if (!permission.action || !permission.resource) {
+              await session.abortTransaction();
+              session.endSession();
+              return next(new AppError("Invalid permission format", 400));
+            }
+          }
+
+          // Find or create permissions to add
+          for (const permission of permissionsToAdd) {
+            if (permission.action == PermissionAction.SUPER) {
+              return next(
+                new AppError("Super permission can not be managed", 400)
+              );
+            }
+            let existingPermission = await Permission.findOne({
+              action: permission.action,
+              resource: permission.resource,
+            }).session(session);
+
+            if (!existingPermission) {
+              const newPermission = await Permission.create(
+                [
+                  {
+                    name: `${permission.resource}:${permission.action}`,
+                    description: `${permission.action} ${permission.resource}`,
+                    action: permission.action,
+                    resource: permission.resource,
+                    conditions: permission.conditions,
+                  },
+                ],
+                { session }
+              );
+              existingPermission = newPermission[0];
+            }
+
+            permissionsToAddDocs.push(existingPermission);
+          }
+        }
+
+        // Handle permissions to remove
+        const permissionsToRemoveIds: mongoose.Types.ObjectId[] = [];
+        if (permissionsToRemove.length > 0) {
+          // Validate each permission to remove
+          for (const permission of permissionsToRemove) {
+            if (!permission.action || !permission.resource) {
+              await session.abortTransaction();
+              session.endSession();
+              return next(new AppError("Invalid permission format", 400));
+            }
+          }
+
+          // Find permissions to remove
+          for (const permission of permissionsToRemove) {
+            if (permission.action == PermissionAction.SUPER) {
+              return next(
+                new AppError("Super permission can not be managed", 400)
+              );
+            }
+            const existingPermission = await Permission.findOne({
+              action: permission.action,
+              resource: permission.resource,
+            }).session(session);
+
+            if (existingPermission) {
+              permissionsToRemoveIds.push(existingPermission._id);
+            }
+          }
+        }
+
+        // Get current permissions
+        const currentPermissions = targetUser.permissions.map((p) => p._id);
+
+        // Add new permissions (avoid duplicates)
+        const permissionsToAddIds = permissionsToAddDocs.map((p) => p._id);
+
+        // Remove specified permissions
+        const updatedPermissions = [
+          ...currentPermissions.filter(
+            (id) => !permissionsToRemoveIds.includes(id)
+          ),
+          ...permissionsToAddIds.filter(
+            (id) => !currentPermissions.includes(id)
+          ),
+        ];
+
+        // Update user permissions
+        targetUser.permissions = updatedPermissions;
+        await targetUser.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        // Get updated user with populated permissions for response
+        const updatedUser = await User.findById(userId).populate({
+          path: "permissions",
+          select: "name action resource conditions",
+        });
+
+        res.status(200).json({
+          status: "success",
+          message: "User permissions updated successfully",
+          data: {
+            permissions: updatedUser?.permissions,
+          },
+        });
+      } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        return next(error);
       }
-
-      // Check if user is actually an admin
-      const isAdmin = targetUser.roles.some(
-        (role) => role.toString() === adminRole._id.toString()
-      );
-
-      if (!isAdmin) {
-        return next(new AppError("User is not an admin", 400));
-      }
-
-      // Remove admin role and permission from user
-      targetUser.roles = targetUser.roles.filter(
-        (role) => role.toString() !== adminRole._id.toString()
-      );
-      targetUser.permissions = targetUser.permissions.filter(
-        (permission) => permission.toString() !== adminPermission._id.toString()
-      );
-
-      // Remove user from admin role's users array
-      adminRole.users = adminRole.users.filter(
-        (user) =>
-          user.toString() !==
-          (targetUser._id as mongoose.Types.ObjectId).toString()
-      );
-
-      await Promise.all([targetUser.save(), adminRole.save()]);
-
-      res.status(200).json({
-        status: "success",
-        message: "User demoted to regular user successfully",
-      });
     } catch (error) {
       next(error);
     }

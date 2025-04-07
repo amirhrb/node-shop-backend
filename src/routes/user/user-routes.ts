@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { RequestHandler, Router } from "express";
 import Authentication from "../../controllers/helpers/authentication";
 import cartRouter from "../cart-routes";
 import orderRouter from "../order-routes";
@@ -6,54 +6,140 @@ import profileRouter from "./profile-routes";
 import addressRouter from "./address-routes";
 import favoritesRouter from "./favorites-routes";
 import UserController from "../../controllers/user/user";
+import { PermissionAction, ResourceType } from "../../models/user/permission";
 
 const router = Router({
   mergeParams: true,
 });
-const auth = new Authentication();
-const user = new UserController();
 
-// Authentication routes (public)
-router.post("/send-code", auth.sendVerificationCode);
-router.post("/verify-code", auth.verifyCode);
-router.post("/refresh-token", auth.refreshToken);
-
-// Protected routes
-router.use(auth.protect);
-
-// Nested routes
+// Mount sub-routers
 router.use("/cart", cartRouter);
 router.use("/orders", orderRouter);
 router.use("/profile", profileRouter);
 router.use("/address", addressRouter);
 router.use("/favorites", favoritesRouter);
 
-// User routes
-router.post("/logout", auth.logout);
-router.post("/logout-all", auth.logoutAll);
-router.patch("/update-profile", auth.updateProfile);
-router.route("/me").get(user.getMe).delete(user.deleteMe);
+const auth = new Authentication();
+const user = new UserController();
 
-// Super Admin routes - must come before admin routes to prevent access
+// Authentication routes (public)
+router.post("/send-code", auth.sendVerificationCode as RequestHandler);
+router.post("/verify-code", auth.verifyCode as RequestHandler);
+router.post("/refresh-token", auth.refreshToken as RequestHandler);
+
+// Protected routes
+router.use(auth.protect as RequestHandler);
+
+// User management routes
+router.post("/logout-all", auth.logoutAll as RequestHandler);
+
+router
+  .route("/me")
+  .get(
+    auth.hasAnyPermission([
+      { action: PermissionAction.READ, resource: ResourceType.USER },
+      { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+    ]) as RequestHandler,
+    user.getMe as RequestHandler
+  )
+  .patch(
+    auth.hasAnyPermission([
+      { action: PermissionAction.UPDATE, resource: ResourceType.USER },
+      { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+    ]) as RequestHandler,
+    user.updateMe as RequestHandler
+  )
+  .delete(
+    auth.hasAnyPermission([
+      { action: PermissionAction.DELETE, resource: ResourceType.USER },
+      { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+    ]) as RequestHandler,
+    user.deleteMe as RequestHandler
+  );
+
+// Admin route to get all users
+router.get(
+  "/",
+  auth.hasAnyPermission([
+    { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+  ]) as RequestHandler,
+  user.getAllUsers as RequestHandler
+);
+
+/**
+ * @route   POST /api/v1/users/promote-to-admin
+ * @desc    Promote a user to admin or superAdmin role
+ * @access  Super Admin only
+ * @body    {
+ *   userId: string,
+ *   roleType: "admin" | "superAdmin" (default: "admin")
+ * }
+ */
 router.post(
   "/promote-to-admin",
-  auth.restrictTo("super-admin"),
-  auth.promoteToAdmin
+  auth.hasAnyPermission([
+    { action: PermissionAction.SUPER, resource: ResourceType.USER },
+  ]) as RequestHandler,
+  auth.promoteToAdmin as RequestHandler
 );
 
+/**
+ * @route   POST /api/v1/users/demote-from-role
+ * @desc    Demote a user from admin or superAdmin role
+ * @access  Super Admin only
+ * @body    {
+ *   userId: string,
+ *   roleType: "admin" | "superAdmin" (default: "admin")
+ * }
+ */
 router.post(
-  "/demote-to-user",
-  auth.restrictTo("super-admin"),
-  auth.demoteToUser
+  "/demote-from-role",
+  auth.hasAnyPermission([
+    { action: PermissionAction.SUPER, resource: ResourceType.USER },
+  ]) as RequestHandler,
+  auth.demoteFromRole as RequestHandler
 );
 
-// Admin routes
-router.use(auth.restrictTo("admin", "super-admin")); // Allow both admin and super-admin access
-router.get("/", user.getAllUsers);
+/**
+ * @route   POST /api/v1/users/manage-permissions
+ * @desc    Add or remove permissions for a user
+ * @access  Super Admin only
+ * @body    {
+ *   userId: string,
+ *   permissionsToAdd: [{ action: PermissionAction, resource: ResourceType, conditions?: {} }],
+ *   permissionsToRemove: [{ action: PermissionAction, resource: ResourceType }]
+ * }
+ */
+router.post(
+  "/manage-permissions",
+  auth.hasAnyPermission([
+    { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+  ]) as RequestHandler,
+  auth.manageUserPermissions as RequestHandler
+);
+
 router
   .route("/:id")
-  .get(user.getUserByID)
-  .patch(user.updateUser)
-  .delete(user.deleteUser);
+  .get(
+    auth.hasAnyPermission([
+      { action: PermissionAction.READ, resource: ResourceType.USER },
+      { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+    ]) as RequestHandler,
+    user.getUserByID as RequestHandler
+  )
+  .patch(
+    auth.hasAnyPermission([
+      { action: PermissionAction.UPDATE, resource: ResourceType.USER },
+      { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+    ]) as RequestHandler,
+    user.updateUser as RequestHandler
+  )
+  .delete(
+    auth.hasAnyPermission([
+      { action: PermissionAction.DELETE, resource: ResourceType.USER },
+      { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+    ]) as RequestHandler,
+    user.deleteUser as RequestHandler
+  );
 
 export default router;

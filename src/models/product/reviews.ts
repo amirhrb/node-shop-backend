@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import mongoose, { Model, Schema, Document, Query } from "mongoose";
 import Product from "./product";
 
@@ -8,11 +7,21 @@ export interface IReview extends Document {
   user: mongoose.Types.ObjectId;
   product: mongoose.Types.ObjectId;
   likes: mongoose.Types.ObjectId[];
+  isPublished: boolean;
+  isVerified: boolean;
   populate: () => Promise<IReview>;
+  likeCount: number;
+  isLikedBy: (userId: mongoose.Types.ObjectId) => boolean;
+  addLike: (likeId: mongoose.Types.ObjectId) => void;
+  removeLike: (likeId: mongoose.Types.ObjectId) => void;
 }
 
 export interface IReviewModel extends Model<IReview> {
   calcAverageRatings(productId: mongoose.Types.ObjectId): Promise<void>;
+}
+
+interface ReviewQuery extends Query<Record<string, unknown>, IReview> {
+  r?: IReview;
 }
 
 const reviewsSchema: Schema<IReview> = new mongoose.Schema(
@@ -37,10 +46,20 @@ const reviewsSchema: Schema<IReview> = new mongoose.Schema(
       type: String,
       required: [true, "Review is required"],
     },
-    likes: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Like",
-    }]
+    isPublished: {
+      type: Boolean,
+      default: false,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    likes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Like",
+      },
+    ],
   },
   {
     timestamps: true,
@@ -49,7 +68,7 @@ const reviewsSchema: Schema<IReview> = new mongoose.Schema(
 
 reviewsSchema.index({ createdAt: -1 });
 
-reviewsSchema.pre(/^find/, function (next) {
+reviewsSchema.pre(/^find/, function (next): void {
   this.populate([
     {
       path: "user",
@@ -62,7 +81,7 @@ reviewsSchema.pre(/^find/, function (next) {
 
 reviewsSchema.statics.calcAverageRatings = async function (
   productId: mongoose.Types.ObjectId
-) {
+): Promise<void> {
   const stats = await this.aggregate([
     {
       $match: { product: productId },
@@ -82,50 +101,37 @@ reviewsSchema.statics.calcAverageRatings = async function (
   });
 };
 
-reviewsSchema.post("save", async function () {
+reviewsSchema.post("save", async function (): Promise<void> {
   await (this.constructor as IReviewModel).calcAverageRatings(this.product);
 });
 
-reviewsSchema.pre<any>(/^findOneAnd/, async function (next) {
-  // pass the data from pre to post middleware
-  // reference the model to fetch the document before the update operation.
-  const doc = await (this.model as IReviewModel).findOne(this.getQuery());
+reviewsSchema.pre<ReviewQuery>(
+  /^findOneAnd/,
+  async function (next): Promise<void> {
+    const doc = await (this.model as IReviewModel).findOne(this.getQuery());
 
-  if (doc) {
-    (this as any).r = doc;
+    if (doc) {
+      this.r = doc;
+    }
+    next();
   }
-  next();
-});
+);
 
-reviewsSchema.post<any>(/^findOneAnd/, async function (doc) {
-  if ((this as any).r) {
-    await (this as any).r.constructor.calcAverageRatings(
-      (this as any).r.product
-    );
+reviewsSchema.post<ReviewQuery>(
+  /^findOneAnd/,
+  async function (): Promise<void> {
+    if (this.r) {
+      await (this.r.constructor as unknown as IReviewModel).calcAverageRatings(
+        this.r.product
+      );
+    }
   }
-});
+);
 
 // Virtual field for like count
-reviewsSchema.virtual('likeCount').get(function(this: IReview) {
+reviewsSchema.virtual("likeCount").get(function (this: IReview): number {
   return this.likes.length;
 });
-
-// Method to check if a user has liked the review
-reviewsSchema.methods.isLikedBy = function(userId: mongoose.Types.ObjectId): boolean {
-  return this.likes.some((likeId: mongoose.Types.ObjectId) => likeId.equals(userId));
-};
-
-// Method to add a like
-reviewsSchema.methods.addLike = function(likeId: mongoose.Types.ObjectId): void {
-  if (!this.likes.some((id: mongoose.Types.ObjectId) => id.equals(likeId))) {
-    this.likes.push(likeId);
-  }
-};
-
-// Method to remove a like
-reviewsSchema.methods.removeLike = function(likeId: mongoose.Types.ObjectId): void {
-  this.likes = this.likes.filter((id: mongoose.Types.ObjectId) => !id.equals(likeId));
-};
 
 const Review: IReviewModel = mongoose.model<IReview, IReviewModel>(
   "Review",

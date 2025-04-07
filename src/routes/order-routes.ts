@@ -1,7 +1,15 @@
-import { Router } from "express";
+import { RequestHandler, Router } from "express";
 import Authentication from "../controllers/helpers/authentication";
 import Order from "../controllers/order";
-import { RequestHandler } from "express";
+import { ValidatedEnv } from "../config/env.config";
+import { PermissionAction, ResourceType } from "../models/user/permission";
+import { authRateLimiter } from "../middleware/rateLimiter";
+
+declare module "express" {
+  interface Request {
+    env: ValidatedEnv;
+  }
+}
 
 const router = Router({
   mergeParams: true,
@@ -9,28 +17,59 @@ const router = Router({
 const auth = new Authentication();
 const order = new Order();
 
-// Cast the handlers to RequestHandler to satisfy TypeScript
-const createOrderHandler: RequestHandler = order.createOrder;
-const verifyPaymentHandler: RequestHandler = order.verifyPayment;
-const getUserOrdersHandler: RequestHandler = order.getUserOrders;
-const getOrderHandler: RequestHandler = order.getOrder;
-const updateOrderStatusHandler: RequestHandler = order.updateOrderStatus;
-const cancelOrderHandler: RequestHandler = order.cancelOrder;
+// Public routes with rate limiting
+router.get(
+  "/verify-payment",
+  authRateLimiter,
+  order.verifyPayment as RequestHandler
+);
 
-// Public routes
-router.route("/verify-payment").get(verifyPaymentHandler);
+// Protected routes with authentication
+router.use(auth.protect as RequestHandler);
 
 // Protected routes
-router.route("/checkout").post(auth.protect, createOrderHandler);
-router.get("/", auth.protect, getUserOrdersHandler);
+router.route("/checkout").post(
+  auth.hasAnyPermission([
+    { action: PermissionAction.CREATE, resource: ResourceType.ORDER },
+    { action: PermissionAction.MANAGE, resource: ResourceType.ORDER },
+  ]) as RequestHandler,
+  order.createOrder as RequestHandler
+);
+
+router.get(
+  "/",
+  auth.hasAnyPermission([
+    { action: PermissionAction.READ, resource: ResourceType.ORDER },
+    { action: PermissionAction.MANAGE, resource: ResourceType.ORDER },
+  ]) as RequestHandler,
+  order.getUserOrders as RequestHandler
+);
 
 // Order specific routes
 router
   .route("/:id")
-  .all(auth.protect)
-  .get(getOrderHandler)
-  .patch(auth.restrictTo("admin", "super-admin"), updateOrderStatusHandler);
+  .get(
+    auth.hasAnyPermission([
+      { action: PermissionAction.READ, resource: ResourceType.ORDER },
+      { action: PermissionAction.MANAGE, resource: ResourceType.ORDER },
+    ]) as RequestHandler,
+    order.getOrder as RequestHandler
+  )
+  .patch(
+    auth.hasAnyPermission([
+      { action: PermissionAction.UPDATE, resource: ResourceType.ORDER },
+      { action: PermissionAction.MANAGE, resource: ResourceType.ORDER },
+    ]) as RequestHandler,
+    order.updateOrderStatus as RequestHandler
+  );
 
-router.patch("/:id/cancel", auth.protect, cancelOrderHandler);
+router.patch(
+  "/:id/cancel",
+  auth.hasAnyPermission([
+    { action: PermissionAction.UPDATE, resource: ResourceType.ORDER },
+    { action: PermissionAction.MANAGE, resource: ResourceType.ORDER },
+  ]) as RequestHandler,
+  order.cancelOrder as RequestHandler
+);
 
 export default router;

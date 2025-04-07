@@ -1,5 +1,5 @@
 import multer, { FileFilterCallback, Multer } from "multer";
-import { Request, Express } from "express";
+import { Request } from "express";
 import AppError from "./error";
 
 class Uploader {
@@ -18,16 +18,16 @@ class Uploader {
   multerStorage = multer.memoryStorage();
 
   multerFilter = (
-    req: Request,
+    _req: Request,
     file: Express.Multer.File,
-    cb: FileFilterCallback,
+    cb: FileFilterCallback
   ): void => {
     if (file.mimetype.startsWith("image")) {
       cb(null, true);
     } else {
       cb(
         new AppError("Please upload only images", 400) as unknown as null,
-        false,
+        false
       );
     }
   };

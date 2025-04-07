@@ -3,14 +3,15 @@ import app from "./app";
 import dotenv from "dotenv";
 import { validateEnv } from "./config/env.config";
 import { checkAndSeedProductionDB } from "./seed/populate-db";
+import { Server, IncomingMessage, ServerResponse } from "http";
 import logger from "./utils/logger";
+
+// 1. Load .env file (base settings)
+dotenv.config();
+console.log("Loaded .env file");
 
 // Load environment variables in order of priority
 const nodeEnv = process.env.NODE_ENV || "development";
-
-// 1. Load .env file (base settings)
-dotenv.config({ path: ".env" });
-console.log("Loaded .env file");
 
 // 2. Load environment specific file (.env.development, .env.test, etc)
 const envFile = `.env.${nodeEnv}`;
@@ -28,9 +29,9 @@ console.log(
   `Environment validated successfully. Running in ${env.NODE_ENV} mode`
 );
 
-let server: any;
+let server: Server<typeof IncomingMessage, typeof ServerResponse>;
 
-const startServer = async () => {
+const startServer = async (): Promise<void> => {
   try {
     // Connect to the Database
     await mongoose.connect(env.MONGO_URI);
@@ -45,37 +46,38 @@ const startServer = async () => {
     const port = env.PORT;
     server = app.listen(port, () => {
       console.log(
-        `${env.NODE_ENV} server is running on http://localhost:${port}`
+        `${env.NODE_ENV.toUpperCase()} server is running on http://localhost:${port}`
       );
     });
 
-    // Handle any rejection in the entire application
-    process.on("unhandledRejection", (error: Error) => {
-      console.error("Unhandled Rejection:", error.message);
-      shutDownServer();
+    // Process handlers for uncaught exceptions and unhandled rejections
+    process.on("uncaughtException", (err) => {
+      logger.error("UNCAUGHT EXCEPTION! 💥 Shutting down...");
+      logger.error(`${err.name}: ${err.message}`);
+      logger.error(err.stack);
+      if (env.NODE_ENV === "production") {
+        // For uncaught exceptions, exit immediately as the app state is undefined
+        process.exit(1);
+      }
     });
 
-    // Handle uncaught exceptions
-    process.on("uncaughtException", (error: Error) => {
-      console.error("Uncaught Exception:", error.message);
-      shutDownServer();
+    // Handle unhandled promise rejections
+    process.on("unhandledRejection", (err: Error) => {
+      logger.error("UNHANDLED REJECTION! 💥 Shutting down...");
+      logger.error(`${err.name}: ${err.message}`);
+      logger.error(err.stack);
+      if (env.NODE_ENV === "production") {
+        // For unhandled rejections, try to close the server gracefully first
+        server.close(() => {
+          process.exit(1);
+        });
+      }
     });
   } catch (error) {
-    console.error("Error starting server:", error);
+    logger.error("Error starting server:", error);
     process.exit(1);
   }
 };
-
-function shutDownServer() {
-  console.error("Shutting down...");
-  if (server) {
-    server.close(() => {
-      process.exit(1);
-    });
-  } else {
-    process.exit(1);
-  }
-}
 
 // Start the server
 startServer();

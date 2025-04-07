@@ -1,7 +1,7 @@
 import { Query } from "mongoose";
 
 interface QueryString {
-  [key: string]: any;
+  [key: string]: unknown;
   page?: string;
   sort?: string;
   limit?: string;
@@ -15,7 +15,7 @@ export class APIFeatures<T> {
     this.query = query;
     this.queryString = queryString;
   }
-  filter(enableSearch?: boolean) {
+  filter(enableSearch?: boolean): this {
     // build the query
     const queryObj = { ...this.queryString };
     const excludedFields = ["page", "sort", "limit", "fields"];
@@ -25,8 +25,8 @@ export class APIFeatures<T> {
     if (enableSearch && queryObj.search) {
       this.query
         .find(
-          { $text: { $search: queryObj.search } },
-          { score: { $meta: "textScore" } }, // Including text score in the result
+          { $text: { $search: queryObj.search as string } },
+          { score: { $meta: "textScore" } } // Including text score in the result
         )
         .sort({ score: { $meta: "textScore" } }); // Sorting by text score
     } else {
@@ -42,7 +42,7 @@ export class APIFeatures<T> {
     return this;
   }
 
-  sort() {
+  sort(): this {
     // sort the data and ASC or DESC(if DESC user need to add - before the field name)
     // and add a second sorting field incase of tie in first one
     if (this.queryString.sort) {
@@ -56,7 +56,7 @@ export class APIFeatures<T> {
     return this;
   }
 
-  limitFields() {
+  limitFields(): this {
     // select specific fields that user wants
     if (this.queryString.fields) {
       const fields = this.queryString.fields.split(",").join(" ");
@@ -68,7 +68,7 @@ export class APIFeatures<T> {
     return this;
   }
 
-  paginate() {
+  paginate(): this {
     // add pagination (if the user did not specify a page it will return first 100 documents)
     // convert to number
     const page = this.queryString.page

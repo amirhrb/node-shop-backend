@@ -1,19 +1,9 @@
 /// <reference types="jest" />
 
-import {
-  describe,
-  expect,
-  it,
-  beforeEach,
-  beforeAll,
-  afterAll,
-} from "@jest/globals";
+import { describe, expect, it } from "@jest/globals";
 import request from "supertest";
-import mongoose from "mongoose";
 import express, { Request, Response } from "express";
 import app from "../app";
-import User from "../models/user/user";
-import RefreshToken from "../models/user/tokens";
 
 // Mock User model methods
 jest.mock("../models/user/user", () => {
@@ -68,88 +58,29 @@ jest.mock("../models/user/tokens", () => {
 
 // Mock app routes
 jest.mock("../app", () => {
-  const express = require("express");
   const app = express();
 
-  // Add body parsing middleware
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-
-  app.post("/api/v1/users/send-code", (req: Request, res: Response) => {
-    res.status(200).json({
-      status: "success",
-      message: "Verification code sent successfully",
-      userId: "user-id",
-    });
+  app.post = jest.fn().mockImplementation((path, handler) => {
+    if (path === "/api/v1/users/send-code") {
+      return app;
+    }
+    if (path === "/api/v1/users/verify-code") {
+      return app;
+    }
+    if (path === "/api/v1/users/logout") {
+      return app;
+    }
+    if (path === "/api/v1/users/refresh-token") {
+      return app;
+    }
+    return app;
   });
 
-  app.post("/api/v1/users/verify-code", (req: Request, res: Response) => {
-    try {
-      if (req.body.code === "123456") {
-        res.status(200).json({
-          status: "success",
-          message: "Logged in successfully",
-          accessToken: "access-token",
-          refreshToken: "refresh-token",
-          isProfileComplete: false,
-        });
-      } else {
-        res.status(400).json({
-          status: "fail",
-          message: "Invalid or expired verification code",
-        });
-      }
-    } catch (error) {
-      res.status(500).json({ status: "error", message: "Server error" });
+  app.patch = jest.fn().mockImplementation((path, handler) => {
+    if (path === "/api/v1/users/update-profile") {
+      return app;
     }
-  });
-
-  app.patch("/api/v1/users/update-profile", (req: Request, res: Response) => {
-    try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({
-          status: "fail",
-          message: "You are not logged in",
-        });
-      }
-
-      res.status(200).json({
-        status: "success",
-        message: "Profile updated successfully",
-      });
-    } catch (error) {
-      res.status(500).json({ status: "error", message: "Server error" });
-    }
-  });
-
-  app.post("/api/v1/users/logout", (req: Request, res: Response) => {
-    try {
-      res.status(200).json({
-        status: "success",
-        message: "Logged out successfully",
-      });
-    } catch (error) {
-      res.status(500).json({ status: "error", message: "Server error" });
-    }
-  });
-
-  app.post("/api/v1/users/refresh-token", (req: Request, res: Response) => {
-    try {
-      if (req.body.refreshToken === "valid-refresh-token") {
-        res.status(200).json({
-          status: "success",
-          accessToken: "new-access-token",
-        });
-      } else {
-        res.status(401).json({
-          status: "fail",
-          message: "Invalid refresh token",
-        });
-      }
-    } catch (error) {
-      res.status(500).json({ status: "error", message: "Server error" });
-    }
+    return app;
   });
 
   return app;

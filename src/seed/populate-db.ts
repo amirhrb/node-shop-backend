@@ -4,86 +4,108 @@ import User from "../models/user/user";
 import Product from "../models/product/product";
 import Role from "../models/user/role";
 import Permission from "../models/user/permission";
-import { products } from "./data/products.json";
-import { users } from "./data/users.json";
+import { products } from "./data/product.json";
+import { users } from "./data/user.json";
 import logger from "../utils/logger";
 import { validateEnv } from "../config/env.config";
+import Profile from "../models/user/profile";
+import RefreshToken from "../models/user/tokens";
+import Like from "../models/Like";
+import Address from "../models/user/address";
+import Order from "../models/order";
+import Review from "../models/product/reviews";
+import Favorite from "../models/user/favorites";
+import CartItem from "../models/cart";
+import {
+  adminPermissions,
+  superAdminPermissions,
+  defaultUserPermissions,
+} from "../utils/permission-factory";
 
 dotenv.config();
 
-const createAdminRolesAndUsers = async (session: mongoose.ClientSession) => {
+const createAdminRolesAndUsers = async (
+  session: mongoose.ClientSession
+): Promise<void> => {
   // Create admin roles
   const roles = {
-    superAdmin: await Role.create([{ name: "super-admin" }], {
-      session,
-      ordered: true,
-    }),
-    admin: await Role.create([{ name: "admin" }], {
-      session,
-      ordered: true,
-    }),
-  };
-  logger.info("Created admin roles");
-
-  // Create admin permissions
-  const permissions = {
-    superAdmin: await Permission.create(
+    superAdmin: await Role.create(
       [
         {
           name: "super-admin",
-          roles: [roles.superAdmin[0]._id],
+          description: "Super Admin role with management and super access",
+          isDefault: false,
         },
       ],
-      {
-        session,
-        ordered: true,
-      }
+      { session }
     ),
-    admin: await Permission.create(
+    admin: await Role.create(
       [
         {
           name: "admin",
-          roles: [roles.admin[0]._id],
+          description: "Admin role with management access",
+          isDefault: false,
         },
       ],
-      {
-        session,
-        ordered: true,
-      }
+      { session }
     ),
   };
-  logger.info("Created admin permissions");
+  // Create admin permissions using the permission factory
+  const permissions = {
+    admin: await Permission.create(
+      adminPermissions.map((permission) => ({
+        ...permission,
+        roles: [roles.admin[0]._id],
+      })),
+      { session, ordered: true }
+    ),
+    superAdmin: await Permission.create(
+      superAdminPermissions.map((permission) => ({
+        ...permission,
+        roles: [roles.superAdmin[0]._id],
+      })),
+      { session, ordered: true }
+    ),
+  };
+  // Update roles with permissions
+  roles.admin[0].permissions = permissions.admin.map((p) => p._id);
+  roles.superAdmin[0].permissions = permissions.superAdmin.map((p) => p._id);
 
-  roles.admin[0].permissions.push(permissions.admin[0]._id);
-  roles.superAdmin[0].permissions.push(permissions.superAdmin[0]._id);
-  await roles.admin[0].save({ session });
-  await roles.superAdmin[0].save({ session });
-  logger.info("Roles updated by new permissions");
+  await Promise.all([
+    roles.admin[0].save({ session }),
+    roles.superAdmin[0].save({ session }),
+  ]);
 
-  // Get or create user role and permission
+  // Get or create user role and permissions
   let userRole = await Role.findOne({ name: "user" }).session(session);
-  let userPermission = await Permission.findOne({ name: "user" }).session(
-    session
+  if (!userRole) {
+    userRole = (
+      await Role.create(
+        [
+          {
+            name: "user",
+            description: "Default user role with basic permissions",
+            isDefault: true,
+          },
+        ],
+        { session }
+      )
+    )[0];
+  }
+
+  // Create user permissions using the permission factory
+  const userPermissions = await Permission.create(
+    defaultUserPermissions.map((permission) => ({
+      ...permission,
+      roles: [userRole._id],
+    })),
+    { session, ordered: true }
   );
 
-  if (!userRole) {
-    const newUserRole = await Role.create([{ name: "user" }], {
-      session,
-      ordered: true,
-    });
-    userRole = newUserRole[0];
-  }
-  if (!userPermission) {
-    const newUserPermission = await Permission.create(
-      [{ name: "user", roles: [userRole._id] }],
-      { session, ordered: true }
-    );
-    userPermission = newUserPermission[0];
-    userRole.permissions.push(userPermission._id);
-    await userRole.save({ session });
-  }
+  userRole.permissions = userPermissions.map((p) => p._id);
+  await userRole.save({ session });
 
-  // Create admin users from environment variables
+  // Create admin users
   const adminUsers = [
     {
       username: process.env.SUPER_ADMIN_USERNAME,
@@ -91,9 +113,11 @@ const createAdminRolesAndUsers = async (session: mongoose.ClientSession) => {
       lastName: process.env.SUPER_ADMIN_LAST_NAME,
       email: process.env.SUPER_ADMIN_EMAIL,
       phone: process.env.SUPER_ADMIN_PHONE,
-      password: process.env.SUPER_ADMIN_PASSWORD,
-      roles: [userRole._id, roles.superAdmin[0]._id], // User role first, then admin role
-      permissions: [userPermission._id, permissions.superAdmin[0]._id], // User permission first, then admin permission
+      roles: [userRole._id, roles.superAdmin[0]._id],
+      permissions: [
+        ...userPermissions.map((p) => p._id),
+        ...permissions.superAdmin.map((p) => p._id),
+      ],
       isVerified: true,
     },
     {
@@ -102,93 +126,50 @@ const createAdminRolesAndUsers = async (session: mongoose.ClientSession) => {
       lastName: process.env.ADMIN_LAST_NAME,
       email: process.env.ADMIN_EMAIL,
       phone: process.env.ADMIN_PHONE,
-      password: process.env.ADMIN_PASSWORD,
-      roles: [userRole._id, roles.admin[0]._id], // User role first, then admin role
-      permissions: [userPermission._id, permissions.admin[0]._id], // User permission first, then admin permission
+      roles: [userRole._id, roles.admin[0]._id],
+      permissions: [
+        ...userPermissions.map((p) => p._id),
+        ...permissions.admin.map((p) => p._id),
+      ],
       isVerified: true,
     },
   ];
 
-  // Create admin users in database
   const createdAdmins = await User.create(adminUsers, {
     session,
     ordered: true,
   });
 
   // Update roles with admin user references
-  await Promise.all([
-    roles.admin[0]
-      .updateOne({
-        $push: {
-          users: {
-            $each: createdAdmins
-              .filter((admin) => admin.roles.includes(roles.admin[0]._id))
-              .map((admin) => admin._id),
-          },
-        },
-      })
-      .session(session),
-    roles.superAdmin[0]
-      .updateOne({
-        $push: {
-          users: {
-            $each: createdAdmins
-              .filter((admin) => admin.roles.includes(roles.superAdmin[0]._id))
-              .map((admin) => admin._id),
-          },
-        },
-      })
-      .session(session),
-    userRole
-      .updateOne({
-        $push: {
-          users: {
-            $each: createdAdmins.map((admin) => admin._id),
-          },
-        },
-      })
-      .session(session),
-  ]);
-  logger.info("Updated admin role-user relationships");
+  for (const admin of createdAdmins) {
+    if (admin.roles.includes(roles.admin[0]._id)) {
+      await roles.admin[0]
+        .updateOne({ $push: { users: admin._id } })
+        .session(session);
+    }
+    if (admin.roles.includes(roles.superAdmin[0]._id)) {
+      await roles.superAdmin[0]
+        .updateOne({ $push: { users: admin._id } })
+        .session(session);
+    }
+    await userRole.updateOne({ $push: { users: admin._id } }).session(session);
+  }
 };
 
-const populateDevData = async (session: mongoose.ClientSession) => {
-  // Get user role and permission
-  const userRole = await Role.findOne({ name: "user" }).session(session);
-  const userPermission = await Permission.findOne({ name: "user" }).session(
-    session
-  );
-
-  if (!userRole || !userPermission) {
-    return logger.error("User role or permission not found");
-  }
-
+const populateDevData = async (
+  session: mongoose.ClientSession
+): Promise<void> => {
   // Create regular users
-  const regularUsers = users
-    .filter((user) => user.role === "user")
-    .map((user) => ({
-      ...user,
-      isVerified: true,
-      roles: [userRole._id], // Only user role for regular users
-      permissions: [userPermission._id], // Only user permission for regular users
-    }));
+  const regularUsers = users.map((user) => ({
+    ...user,
+    isVerified: true,
+  }));
 
   const createdUsers = await User.create(regularUsers, {
     session,
     ordered: true,
   });
   logger.info(`Created ${createdUsers.length} regular users`);
-
-  // Update user role with new user references
-  await userRole
-    .updateOne({
-      $push: {
-        users: {
-          $each: createdUsers.map((user) => user._id),
-        },
-      },
-    })
-    .session(session);
 
   // Create products
   const createdProducts = await Product.create(products, {
@@ -198,7 +179,7 @@ const populateDevData = async (session: mongoose.ClientSession) => {
   logger.info(`Created ${createdProducts.length} products`);
 };
 
-const populateDB = async () => {
+const populateDB = async (): Promise<never> => {
   try {
     // Validate environment variables
     const env = validateEnv();
@@ -213,6 +194,14 @@ const populateDB = async () => {
     await session.withTransaction(async () => {
       // Delete existing data
       await User.deleteMany({}).session(session);
+      await Profile.deleteMany({}).session(session);
+      await Address.deleteMany({}).session(session);
+      await Order.deleteMany({}).session(session);
+      await RefreshToken.deleteMany({}).session(session);
+      await Like.deleteMany({}).session(session);
+      await Review.deleteMany({}).session(session);
+      await Favorite.deleteMany({}).session(session);
+      await CartItem.deleteMany({}).session(session);
       await Product.deleteMany({}).session(session);
       await Role.deleteMany({}).session(session);
       await Permission.deleteMany({}).session(session);
@@ -241,7 +230,7 @@ const populateDB = async () => {
   }
 };
 
-export const checkAndSeedProductionDB = async () => {
+export const checkAndSeedProductionDB = async (): Promise<void> => {
   try {
     // Check if database is empty
     const userCount = await User.countDocuments();

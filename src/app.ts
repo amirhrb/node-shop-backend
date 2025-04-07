@@ -1,4 +1,11 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, {
+  Request,
+  Response,
+  NextFunction,
+  RequestHandler,
+  Router,
+  ErrorRequestHandler,
+} from "express";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import hpp from "hpp";
@@ -11,23 +18,19 @@ import { defaultRateLimiter, authRateLimiter } from "./middleware/rateLimiter";
 import AppError from "./utils/error";
 import {
   adminRouter,
-  cartRouter,
-  orderRouter,
   productRouter,
   reviewRouter,
   userRouter,
-  likeRouter
+  likeRouter,
 } from "./routes";
 import sanitizeInput from "./utils/snitize-input";
 import logger from "./utils/logger";
 import cloudinaryConfig from "./utils/cloudinary-config";
 import { ValidatedEnv } from "./config/env.config";
 
-declare global {
-  namespace Express {
-    interface Request {
-      env: ValidatedEnv;
-    }
+declare module "express" {
+  interface Request {
+    env: ValidatedEnv;
   }
 }
 
@@ -43,7 +46,7 @@ app.use(cors());
 // Request logging
 app.use(
   morgan(
-    (tokens: { [key: string]: any }, req, res) => {
+    (tokens, req, res) => {
       return JSON.stringify({
         remoteAddr: tokens["remote-addr"](req, res),
         date: tokens["date"](req, res, "clf"),
@@ -66,14 +69,14 @@ app.use(
 );
 
 // Data sanitization
-app.use(mongoSanitize());
-app.use(sanitizeInput);
-app.use(hpp());
+app.use(mongoSanitize() as RequestHandler);
+app.use(sanitizeInput as RequestHandler);
+app.use(hpp() as RequestHandler);
 
 // Rate limiting
 app.use("/api", defaultRateLimiter);
-app.use("/api/v1/users/login", authRateLimiter);
-app.use("/api/v1/users/register", authRateLimiter);
+app.use("/api/v1/users/send-code", authRateLimiter);
+app.use("/api/v1/users/verify-code", authRateLimiter);
 
 // Compression
 app.use(compression());
@@ -87,30 +90,32 @@ app.use(cookieParser());
 cloudinaryConfig();
 
 // Add validated env to request object
-app.use((req: Request, _res: Response, next: NextFunction) => {
+const envMiddleware = ((req: Request, _res: Response, next: NextFunction) => {
   req.env = req.app.get("env");
   next();
-});
+}) as RequestHandler;
+
+app.use(envMiddleware);
 
 // Routes
-app.get("/", (_req: Request, res: Response) => {
+const router: Router = express.Router();
+router.get("/", ((_req: Request, res: Response) => {
   res.send("<h1>Welcome To E-Buy API</h1>");
-});
+}) as unknown as RequestHandler);
+app.use(router);
 
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/products", productRouter);
 app.use("/api/v1/reviews", reviewRouter);
-app.use("/api/v1/like", likeRouter)
-app.use("/api/v1/cart", cartRouter);
-app.use("/api/v1/orders", orderRouter);
+app.use("/api/v1/like", likeRouter);
 app.use("/api/v1/admin", adminRouter);
 
 // 404 handler
-app.all("*", (req: Request, res: Response, next: NextFunction) => {
+app.all("*", ((req: Request, res: Response, next: NextFunction) => {
   next(new AppError(`Route ${req.originalUrl} not found`, 404));
-});
+}) as unknown as RequestHandler);
 
 // Global error handler
-app.use(errorHandler);
+app.use(errorHandler as ErrorRequestHandler);
 
 export default app;

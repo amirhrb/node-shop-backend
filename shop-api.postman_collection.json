@@ -1,11 +1,11 @@
 {
 	"info": {
-		"_postman_id": "d3bcc8ee-9030-4a4d-bf35-fe2d929d642b",
-		"name": "Shop API",
-		"description": "Complete API documentation for the Shop API backend service",
+		"_postman_id": "792ad0e4-8026-4d40-8a25-93f001d6bc52",
+		"name": "Shop API (Optimized)",
+		"description": "Complete API documentation for the Shop API backend service with permission details and best practices",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "25556248",
-		"_collection_link": "https://grey-sunset-20807.postman.co/workspace/Team-Workspace~512411d8-ac50-40ac-8179-179844d8930f/collection/25556248-d3bcc8ee-9030-4a4d-bf35-fe2d929d642b?action=share&source=collection_link&creator=25556248"
+		"_collection_link": "https://grey-sunset-20807.postman.co/workspace/Team-Workspace~512411d8-ac50-40ac-8179-179844d8930f/collection/25556248-792ad0e4-8026-4d40-8a25-93f001d6bc52?action=share&source=collection_link&creator=25556248"
 	},
 	"item": [
 		{
@@ -34,7 +34,8 @@
 								"users",
 								"send-code"
 							]
-						}
+						},
+						"description": "Send verification code to phone number for login or registration"
 					},
 					"response": []
 				},
@@ -45,7 +46,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"userId\": \"67d8490cdcc3c1ed39a88e7c\",\n    \"code\": \"123456\"\n}",
+							"raw": "{\n    \"userId\": \"67f3c7fe095984cd4f62d033\",\n    \"code\": \"123456\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -61,7 +62,8 @@
 								"users",
 								"verify-code"
 							]
-						}
+						},
+						"description": "Verify phone code and receive access token"
 					},
 					"response": []
 				},
@@ -88,7 +90,8 @@
 								"users",
 								"refresh-token"
 							]
-						}
+						},
+						"description": "Get new access token using refresh token"
 					},
 					"response": []
 				},
@@ -112,7 +115,8 @@
 								"users",
 								"logout"
 							]
-						}
+						},
+						"description": "Logout current session"
 					},
 					"response": []
 				},
@@ -136,11 +140,13 @@
 								"users",
 								"logout-all"
 							]
-						}
+						},
+						"description": "Logout from all devices"
 					},
 					"response": []
 				}
-			]
+			],
+			"description": "Public endpoints for authentication - no permissions required"
 		},
 		{
 			"name": "User Management",
@@ -165,12 +171,13 @@
 								"users",
 								"me"
 							]
-						}
+						},
+						"description": "Get current user details (Permission: USER:READ)"
 					},
 					"response": []
 				},
 				{
-					"name": "Update Profile",
+					"name": "Update User",
 					"request": {
 						"method": "PATCH",
 						"header": [
@@ -182,7 +189,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\"\n}",
+							"raw": "{\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"john@example.com\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -190,15 +197,16 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}/users/update-profile",
+							"raw": "{{baseUrl}}/users/me",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"users",
-								"update-profile"
+								"me"
 							]
-						}
+						},
+						"description": "Update user information (Permission: USER:UPDATE)"
 					},
 					"response": []
 				},
@@ -222,7 +230,8 @@
 								"users",
 								"me"
 							]
-						}
+						},
+						"description": "Delete user account (Permission: USER:DELETE)"
 					},
 					"response": []
 				},
@@ -238,28 +247,73 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/users",
+							"raw": "{{baseUrl}}/users?page=1&limit=10",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"users"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
 							]
-						}
+						},
+						"description": "Get all users (Permission: USER:MANAGE)"
 					},
 					"response": []
 				},
 				{
-					"name": "Promote User to Admin (super-admin)",
+					"name": "Get User By ID (Admin)",
 					"request": {
-						"auth": {
-							"type": "noauth"
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "user_id_here"
+								}
+							]
 						},
-						"method": "POST",
-						"header": [],
+						"description": "Get user by ID (Permission: USER:READ or USER:MANAGE)"
+					},
+					"response": []
+				},
+				{
+					"name": "Update User (Admin)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"userId\": \"67d8490cdcc3c1ed39a88e7c\"\r\n}",
+							"raw": "{\n    \"firstName\": \"John Admin\",\n    \"lastName\": \"Doe\",\n    \"email\": \"john2@example.com\",\n    \"active\": true\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -267,29 +321,70 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}/users/promote-to-admin",
+							"raw": "{{baseUrl}}/users/:id",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"users",
-								"promote-to-admin"
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "67f3c7fe095984cd4f62d037"
+								}
 							]
-						}
+						},
+						"description": "Update user details by ID (Permission: USER:UPDATE or USER:MANAGE)"
 					},
 					"response": []
 				},
 				{
-					"name": "Demote Admin to User (super-admin)",
+					"name": "Delete User (Admin)",
 					"request": {
-						"auth": {
-							"type": "noauth"
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "user_id_here"
+								}
+							]
 						},
+						"description": "Delete user by ID (Permission: USER:DELETE or USER:MANAGE)"
+					},
+					"response": []
+				},
+				{
+					"name": "Manage User Permissions (Admin)",
+					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"userId\": \"67d8490cdcc3c1ed39a88e7c\"\r\n}",
+							"raw": "{\n    \"userId\": \"user_id_here\",\n    \"permissionsToAdd\": [\n        { \"action\": \"read\", \"resource\": \"dashboard\" }\n    ],\n    \"permissionsToRemove\": [\n        { \"action\": \"manage\", \"resource\": \"user\" }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -297,19 +392,276 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}/users/demote-to-user",
+							"raw": "{{baseUrl}}/users/manage-permissions",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"users",
-								"demote-to-user"
+								"manage-permissions"
 							]
-						}
+						},
+						"description": "Add or remove user permissions (Permission: USER:MANAGE)"
 					},
 					"response": []
 				}
-			]
+			],
+			"description": "Endpoints require USER:READ, USER:UPDATE, or USER:DELETE permissions"
+		},
+		{
+			"name": "Profile Management",
+			"item": [
+				{
+					"name": "Get Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"profile"
+							]
+						},
+						"description": "Get user's profile (Permission: PROFILE:READ)"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "photo",
+									"type": "file",
+									"src": "/path/to/image.jpg"
+								},
+								{
+									"key": "bio",
+									"value": "Software developer with passion for technology",
+									"type": "text"
+								},
+								{
+									"key": "website",
+									"value": "https://example.com",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"profile"
+							]
+						},
+						"description": "Update user profile with photo upload (Permission: PROFILE:UPDATE)"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints require PROFILE:READ or PROFILE:UPDATE permissions (ownerOnly)"
+		},
+		{
+			"name": "Address Management",
+			"item": [
+				{
+					"name": "Create Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Home\",\n    \"street\": \"123 Main St\",\n    \"city\": \"Springfield\",\n    \"state\": \"IL\",\n    \"postalCode\": \"62704\",\n    \"country\": \"USA\",\n    \"isDefault\": true,\n    \"phone\": \"1234567890\",\n    \"additionalInfo\": \"Apartment 4B\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/address",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"address"
+							]
+						},
+						"description": "Create new address (Permission: ADDRESS:CREATE)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Addresses",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/address",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"address"
+							]
+						},
+						"description": "Get user's addresses (Permission: ADDRESS:READ)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Address",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/address",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"address"
+							]
+						},
+						"description": "Delete all user addresses (Permission: ADDRESS:DELETE)"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints require ADDRESS:CREATE, ADDRESS:READ, ADDRESS:UPDATE, or ADDRESS:DELETE permissions (ownerOnly)"
+		},
+		{
+			"name": "Favorites",
+			"item": [
+				{
+					"name": "Add Favorite",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"productId\": \"product_id_here\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/favorites",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"favorites"
+							]
+						},
+						"description": "Add product to favorites (Permission: FAVORITE:CREATE)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Favorites",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/favorites",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"favorites"
+							]
+						},
+						"description": "Get user's favorite products (Permission: FAVORITE:READ)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete All Favorites",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/favorites",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"favorites"
+							]
+						},
+						"description": "Remove all favorites (Permission: FAVORITE:DELETE)"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints require FAVORITE:CREATE, FAVORITE:READ, or FAVORITE:DELETE permissions (ownerOnly)"
 		},
 		{
 			"name": "Products",
@@ -320,7 +672,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/products?page=1&limit=10&sort=-createdAt&category=electronics",
+							"raw": "{{baseUrl}}/products?page=1&limit=10&category=electronics&sort=price&order=asc",
 							"host": [
 								"{{baseUrl}}"
 							],
@@ -337,20 +689,25 @@
 									"value": "10"
 								},
 								{
-									"key": "sort",
-									"value": "-createdAt"
-								},
-								{
 									"key": "category",
 									"value": "electronics"
+								},
+								{
+									"key": "sort",
+									"value": "price"
+								},
+								{
+									"key": "order",
+									"value": "asc"
 								}
 							]
-						}
+						},
+						"description": "Get all products with filtering, sorting, and pagination (Permission: PRODUCT:READ, public)"
 					},
 					"response": []
 				},
 				{
-					"name": "Get Product",
+					"name": "Get Product By ID",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -366,10 +723,11 @@
 							"variable": [
 								{
 									"key": "id",
-									"value": "product-id"
+									"value": "product_id_here"
 								}
 							]
-						}
+						},
+						"description": "Get product details by ID (Permission: PRODUCT:READ, public)"
 					},
 					"response": []
 				},
@@ -389,17 +747,17 @@
 							"formdata": [
 								{
 									"key": "name",
-									"value": "Product Name",
+									"value": "Smartphone X1",
 									"type": "text"
 								},
 								{
 									"key": "description",
-									"value": "Product Description",
+									"value": "Latest smartphone with advanced features",
 									"type": "text"
 								},
 								{
 									"key": "price",
-									"value": "99.99",
+									"value": "999.99",
 									"type": "text"
 								},
 								{
@@ -408,10 +766,17 @@
 									"type": "text"
 								},
 								{
+									"key": "stock",
+									"value": "100",
+									"type": "text"
+								},
+								{
 									"key": "images",
 									"type": "file",
-									"src": [],
-									"description": "Multiple product images can be uploaded. Supported formats: jpg, jpeg, png. Max size: 5MB per image."
+									"src": [
+										"/path/to/image1.jpg",
+										"/path/to/image2.jpg"
+									]
 								}
 							]
 						},
@@ -423,7 +788,8 @@
 							"path": [
 								"products"
 							]
-						}
+						},
+						"description": "Create new product (Permission: PRODUCT:MANAGE)"
 					},
 					"response": []
 				},
@@ -443,19 +809,23 @@
 							"formdata": [
 								{
 									"key": "name",
-									"value": "Updated Product Name",
+									"value": "Smartphone X1 Pro",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Updated smartphone with advanced features",
 									"type": "text"
 								},
 								{
 									"key": "price",
-									"value": "149.99",
+									"value": "1299.99",
 									"type": "text"
 								},
 								{
 									"key": "images",
 									"type": "file",
-									"src": [],
-									"description": "Optional: New product images to replace existing ones. Supported formats: jpg, jpeg, png. Max size: 5MB per image."
+									"src": "/path/to/new_image.jpg"
 								}
 							]
 						},
@@ -471,10 +841,11 @@
 							"variable": [
 								{
 									"key": "id",
-									"value": "product-id"
+									"value": "product_id_here"
 								}
 							]
-						}
+						},
+						"description": "Update product (Permission: PRODUCT:MANAGE)"
 					},
 					"response": []
 				},
@@ -501,87 +872,19 @@
 							"variable": [
 								{
 									"key": "id",
-									"value": "product-id"
+									"value": "product_id_here"
 								}
 							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Reviews",
-			"item": [
-				{
-					"name": "Get Product Reviews",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/products/:productId/reviews",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"products",
-								":productId",
-								"reviews"
-							],
-							"variable": [
-								{
-									"key": "productId",
-									"value": "product-id"
-								}
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Create Review",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"rating\": 5,\n    \"review\": \"Great product!\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
 						},
-						"url": {
-							"raw": "{{baseUrl}}/products/:productId/reviews",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"products",
-								":productId",
-								"reviews"
-							],
-							"variable": [
-								{
-									"key": "productId",
-									"value": "product-id"
-								}
-							]
-						}
+						"description": "Delete product (Permission: PRODUCT:MANAGE)"
 					},
 					"response": []
 				}
-			]
+			],
+			"description": "Endpoints require PRODUCT:READ or PRODUCT:MANAGE permissions"
 		},
 		{
-			"name": "Cart",
+			"name": "Cart Management",
 			"item": [
 				{
 					"name": "Get Cart",
@@ -603,12 +906,13 @@
 								"users",
 								"cart"
 							]
-						}
+						},
+						"description": "Get user's cart (Permission: CART:READ)"
 					},
 					"response": []
 				},
 				{
-					"name": "Add/Update Cart Item",
+					"name": "Add Item to Cart",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -620,7 +924,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"productId\": \"product-id\",\n    \"quantity\": 1\n}",
+							"raw": "{\n    \"productId\": \"product_id_here\",\n    \"quantity\": 2\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -636,7 +940,8 @@
 								"users",
 								"cart"
 							]
-						}
+						},
+						"description": "Add product to cart (Permission: CART:CREATE, CART:UPDATE)"
 					},
 					"response": []
 				},
@@ -653,7 +958,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"quantity\": 2\n}",
+							"raw": "{\n    \"itemId\": \"cart_item_id_here\",\n    \"quantity\": 3\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -661,27 +966,21 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}/users/cart/:id",
+							"raw": "{{baseUrl}}/users/cart",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"users",
-								"cart",
-								":id"
-							],
-							"variable": [
-								{
-									"key": "id",
-									"value": "cart-item-id"
-								}
+								"cart"
 							]
-						}
+						},
+						"description": "Update cart item quantity (Permission: CART:UPDATE)"
 					},
 					"response": []
 				},
 				{
-					"name": "Delete Cart Item",
+					"name": "Remove Item from Cart",
 					"request": {
 						"method": "DELETE",
 						"header": [
@@ -692,26 +991,53 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/users/cart/:id",
+							"raw": "{{baseUrl}}/users/cart/:itemId",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"users",
 								"cart",
-								":id"
+								":itemId"
 							],
 							"variable": [
 								{
-									"key": "id",
-									"value": "cart-item-id"
+									"key": "itemId",
+									"value": "cart_item_id_here"
 								}
 							]
-						}
+						},
+						"description": "Remove item from cart (Permission: CART:DELETE)"
+					},
+					"response": []
+				},
+				{
+					"name": "Clear Cart",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/cart",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"cart"
+							]
+						},
+						"description": "Clear all items from cart (Permission: CART:DELETE)"
 					},
 					"response": []
 				}
-			]
+			],
+			"description": "Endpoints require CART:CREATE, CART:READ, CART:UPDATE, or CART:DELETE permissions (ownerOnly)"
 		},
 		{
 			"name": "Orders",
@@ -729,7 +1055,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"addressId\": \"address-id\",\n    \"paymentMethod\": \"online\"\n}",
+							"raw": "{\n    \"addressId\": \"address_id_here\",\n    \"paymentMethod\": \"credit_card\",\n    \"items\": [\n        {\n            \"productId\": \"product_id_here\",\n            \"quantity\": 2\n        }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -737,16 +1063,16 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}/users/orders/checkout",
+							"raw": "{{baseUrl}}/users/orders",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"users",
-								"orders",
-								"checkout"
+								"orders"
 							]
-						}
+						},
+						"description": "Create new order (Permission: ORDER:CREATE)"
 					},
 					"response": []
 				},
@@ -762,20 +1088,31 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/users/orders",
+							"raw": "{{baseUrl}}/users/orders?page=1&limit=10",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"users",
 								"orders"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
 							]
-						}
+						},
+						"description": "Get user's orders (Permission: ORDER:READ)"
 					},
 					"response": []
 				},
 				{
-					"name": "Get Order Details",
+					"name": "Get Order By ID",
 					"request": {
 						"method": "GET",
 						"header": [
@@ -798,10 +1135,51 @@
 							"variable": [
 								{
 									"key": "id",
-									"value": "order-id"
+									"value": "order_id_here"
 								}
 							]
-						}
+						},
+						"description": "Get order details by ID (Permission: ORDER:READ)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Orders (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/orders/admin?page=1&limit=10&status=pending",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"orders",
+								"admin"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "status",
+									"value": "pending"
+								}
+							]
+						},
+						"description": "Get all orders with filtering (Permission: ORDER:MANAGE)"
 					},
 					"response": []
 				},
@@ -818,7 +1196,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"status\": \"processing\"\n}",
+							"raw": "{\n    \"status\": \"shipped\",\n    \"trackingNumber\": \"TR123456789\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -826,27 +1204,139 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}/users/orders/:id",
+							"raw": "{{baseUrl}}/users/orders/:id/status",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"users",
 								"orders",
-								":id"
+								":id",
+								"status"
 							],
 							"variable": [
 								{
 									"key": "id",
-									"value": "order-id"
+									"value": "order_id_here"
 								}
 							]
-						}
+						},
+						"description": "Update order status (Permission: ORDER:MANAGE)"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints require ORDER:CREATE, ORDER:READ, or ORDER:MANAGE permissions"
+		},
+		{
+			"name": "Reviews",
+			"item": [
+				{
+					"name": "Create Review",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"productId\": \"product_id_here\",\n    \"rating\": 5,\n    \"comment\": \"Great product!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reviews",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews"
+							]
+						},
+						"description": "Create new review (Permission: REVIEW:CREATE)"
 					},
 					"response": []
 				},
 				{
-					"name": "Cancel Order",
+					"name": "Get Product Reviews",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reviews/product/:productId?page=1&limit=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"product",
+								":productId"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							],
+							"variable": [
+								{
+									"key": "productId",
+									"value": "product_id_here"
+								}
+							]
+						},
+						"description": "Get reviews for a product (Permission: REVIEW:READ, public)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Reviews",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/reviews/user?page=1&limit=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"user"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Get user's reviews (Permission: REVIEW:READ)"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Review",
 					"request": {
 						"method": "PATCH",
 						"header": [
@@ -856,182 +1346,37 @@
 								"type": "text"
 							}
 						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"rating\": 4,\n    \"comment\": \"Updated review\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
 						"url": {
-							"raw": "{{baseUrl}}/users/orders/:id/cancel",
+							"raw": "{{baseUrl}}/reviews/:id",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"users",
-								"orders",
-								":id",
-								"cancel"
+								"reviews",
+								":id"
 							],
 							"variable": [
 								{
 									"key": "id",
-									"value": "order-id"
+									"value": "review_id_here"
 								}
 							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Verify Payment",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/users/orders/verify-payment?Authority=payment-authority&Status=OK",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"users",
-								"orders",
-								"verify-payment"
-							],
-							"query": [
-								{
-									"key": "Authority",
-									"value": "payment-authority"
-								},
-								{
-									"key": "Status",
-									"value": "OK"
-								}
-							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Address",
-			"item": [
-				{
-					"name": "Get User Addresses",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/users/address",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"users",
-								"address"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Add Address",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"title\": \"Home\",\n    \"address\": \"123 Main St\",\n    \"city\": \"Tehran\",\n    \"postalCode\": \"12345\",\n    \"isDefault\": true\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
 						},
-						"url": {
-							"raw": "{{baseUrl}}/users/address",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"users",
-								"address"
-							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Favorites",
-			"item": [
-				{
-					"name": "Get Favorites",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/users/favorites",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"users",
-								"favorites"
-							]
-						}
+						"description": "Update review (Permission: REVIEW:UPDATE, ownerOnly)"
 					},
 					"response": []
 				},
 				{
-					"name": "Add to Favorites",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"productId\": \"67d852376e35d03045e742dc\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/users/favorites",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"users",
-								"favorites"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Remove from Favorites",
+					"name": "Delete Review",
 					"request": {
 						"method": "DELETE",
 						"header": [
@@ -1042,32 +1387,158 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/users/favorites/:productId",
+							"raw": "{{baseUrl}}/reviews/:id",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"users",
-								"favorites",
+								"reviews",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "review_id_here"
+								}
+							]
+						},
+						"description": "Delete review (Permission: REVIEW:DELETE, ownerOnly)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Reviews (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/reviews/admin?page=1&limit=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reviews",
+								"admin"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Get all reviews (Permission: REVIEW:MANAGE)"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints require REVIEW:CREATE, REVIEW:READ, REVIEW:UPDATE, REVIEW:DELETE, or REVIEW:MANAGE permissions"
+		},
+		{
+			"name": "Likes",
+			"item": [
+				{
+					"name": "Like Product",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"productId\": \"product_id_here\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/likes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"likes"
+							]
+						},
+						"description": "Like a product (Permission: LIKE:CREATE)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product Likes",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/likes/product/:productId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"likes",
+								"product",
 								":productId"
 							],
 							"variable": [
 								{
 									"key": "productId",
-									"value": "product-id"
+									"value": "product_id_here"
 								}
 							]
-						}
+						},
+						"description": "Get likes count for a product (Permission: LIKE:READ, public)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Likes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/likes/user",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"likes",
+								"user"
+							]
+						},
+						"description": "Get user's liked products (Permission: LIKE:READ)"
 					},
 					"response": []
 				}
-			]
+			],
+			"description": "Endpoints require LIKE:CREATE or LIKE:READ permissions"
 		},
 		{
 			"name": "Dashboard",
 			"item": [
 				{
-					"name": "Get Dashboard Users",
+					"name": "Get Dashboard Stats",
 					"request": {
 						"method": "GET",
 						"header": [
@@ -1078,21 +1549,21 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/admin/dashboard/users",
+							"raw": "{{baseUrl}}/dashboard/stats",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"admin",
 								"dashboard",
-								"users"
+								"stats"
 							]
-						}
+						},
+						"description": "Get dashboard statistics (Permission: DASHBOARD:READ)"
 					},
 					"response": []
 				},
 				{
-					"name": "Get Dashboard Products",
+					"name": "Get Sales Report",
 					"request": {
 						"method": "GET",
 						"header": [
@@ -1103,95 +1574,125 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/admin/dashboard/products",
+							"raw": "{{baseUrl}}/dashboard/sales?startDate=2024-01-01&endDate=2024-12-31",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"admin",
-								"dashboard",
-								"products"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Get Dashboard Revenue",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/admin/dashboard/revenue",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"admin",
-								"dashboard",
-								"revenue"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Get Dashboard Orders",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/admin/dashboard/orders",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"admin",
-								"dashboard",
-								"orders"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Get Dashboard Sales",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/admin/dashboard/sales",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"admin",
 								"dashboard",
 								"sales"
+							],
+							"query": [
+								{
+									"key": "startDate",
+									"value": "2024-01-01"
+								},
+								{
+									"key": "endDate",
+									"value": "2024-12-31"
+								}
 							]
-						}
+						},
+						"description": "Get sales report (Permission: DASHBOARD:READ)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Activity",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/dashboard/activity?page=1&limit=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"dashboard",
+								"activity"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Get user activity log (Permission: DASHBOARD:READ)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get System Settings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/dashboard/settings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"dashboard",
+								"settings"
+							]
+						},
+						"description": "Get system settings (Permission: DASHBOARD:READ)"
+					},
+					"response": []
+				},
+				{
+					"name": "Update System Settings",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"maintenanceMode\": false,\n    \"maxOrdersPerDay\": 1000,\n    \"currency\": \"USD\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/dashboard/settings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"dashboard",
+								"settings"
+							]
+						},
+						"description": "Update system settings (Permission: DASHBOARD:MANAGE)"
 					},
 					"response": []
 				}
-			]
-		}
-	],
-	"variable": [
-		{
-			"key": "baseUrl",
-			"value": "http://localhost:3000/api"
+			],
+			"description": "Endpoints require DASHBOARD:READ or DASHBOARD:MANAGE permissions"
 		}
 	]
 }

@@ -1,7 +1,7 @@
 import populateDB from "./populate-db";
 import logger from "../utils/logger";
 
-const runSeed = async () => {
+const runSeed = async (): Promise<void> => {
   try {
     await populateDB();
     logger.info("Seeding completed successfully");

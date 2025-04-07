@@ -8,13 +8,11 @@ import AppError from "../../utils/error";
 import sharp from "sharp";
 import uploadImage from "../../utils/cloudinary-controller";
 
-// Extend Express.Multer.File to allow partial modification
-interface ModifiedFile extends Partial<Express.Multer.File> {
-  buffer: Buffer;
-  filename: string;
-  originalname?: string;
-  mimetype?: string;
-  size?: number;
+interface RequestWithFiles extends Request {
+  files?: {
+    image?: Express.Multer.File[];
+    ogImage?: Express.Multer.File[];
+  };
 }
 
 class ProductController extends BaseController<IProduct> {
@@ -22,19 +20,30 @@ class ProductController extends BaseController<IProduct> {
     super(Product);
   }
 
-  createProduct = async (req: Request, res: Response, next: NextFunction) => {
+  createProduct = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       delete req.body.ratingsQuantity;
       delete req.body.ratingsAverage;
+      delete req.body.isArchived;
 
       return await this.createOne(["cloudinaryPublicId"])(req, res, next);
     } catch (error) {
       next(error);
     }
   };
+
   getProducts = this.getAll(undefined, undefined, true); // enabling search to accept search text query
   getProduct = this.getOne();
-  updateProduct = async (req: Request, res: Response, next: NextFunction) => {
+
+  updateProduct = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       delete req.body.ratingsQuantity;
       delete req.body.ratingsAverage;
@@ -45,7 +54,38 @@ class ProductController extends BaseController<IProduct> {
     }
   };
 
-  deleteProduct = async (req: Request, res: Response, next: NextFunction) => {
+  toggleArchiveProduct = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const product = await Product.findById(req.params.id);
+
+      if (!product) {
+        return next(new AppError("product not found", 404));
+      }
+
+      product.isArchived = !product.isArchived;
+
+      await product.save();
+
+      res.status(200).json({
+        message: `product is ${
+          product.isArchived ? "archived" : "published"
+        } now`,
+        data: product,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteProduct = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const product = await Product.findById(req.params.id);
       if (!product) {
@@ -76,16 +116,16 @@ class ProductController extends BaseController<IProduct> {
   ]);
 
   resizeProductImages = async (
-    req: Request,
-    res: Response,
+    req: RequestWithFiles,
+    _res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     try {
       const id = req.body.publicId || uuidv4();
 
       // Handle main product images
-      if (req.files && Array.isArray((req as any).files.image)) {
-        const imageFiles = (req as any).files.image;
+      if (req.files?.image) {
+        const imageFiles = req.files.image;
 
         await Promise.all(
           imageFiles.map(async (file: Express.Multer.File, i: number) => {
@@ -99,37 +139,31 @@ class ProductController extends BaseController<IProduct> {
               .jpeg({ quality: 90 })
               .toBuffer();
 
-            const modifiedFile: ModifiedFile = {
-              ...file,
-              buffer: resizedBuffer,
-              filename: filename,
-            };
-
-            (req as any).files.image[i] = modifiedFile;
+            this.assigneFileToReq(req, file, filename, "image", resizedBuffer);
           })
         );
       }
 
       // Handle ogImage
-      if (req.files && Array.isArray((req as any).files.ogImage)) {
-        const ogImageFile = (req as any).files.ogImage[0];
+      if (req.files?.ogImage) {
+        const ogImageFile = req.files.ogImage[0];
         const filename = `product-${id}-og`;
         const resizedBuffer = await sharp(ogImageFile.buffer)
-          .resize(1200, 630, { // Standard OG image dimensions
+          .resize(1200, 630, {
+            // Standard OG image dimensions
             fit: "cover",
             position: "center",
           })
           .toFormat("jpeg")
           .jpeg({ quality: 90 })
           .toBuffer();
-
-        const modifiedFile: ModifiedFile = {
-          ...ogImageFile,
-          buffer: resizedBuffer,
-          filename: filename,
-        };
-
-        (req as any).files.ogImage[0] = modifiedFile;
+        this.assigneFileToReq(
+          req,
+          ogImageFile,
+          filename,
+          "ogImage",
+          resizedBuffer
+        );
       }
 
       next();
@@ -137,13 +171,29 @@ class ProductController extends BaseController<IProduct> {
       next(error);
     }
   };
+  private assigneFileToReq = (
+    req: RequestWithFiles,
+    file: Express.Multer.File,
+    filename: string,
+    reqFileName: string,
+    resizedBuffer?: Buffer
+  ): void => {
+    const modifiedFile = {
+      ...file,
+      buffer: resizedBuffer ? resizedBuffer : file.buffer,
+      filename,
+    };
+
+    (req.files as { [reqFileName]: Express.Multer.File[] })[reqFileName][0] =
+      modifiedFile;
+  };
 
   // Cloudinary Upload
   handleProductImagesUpload = async (
-    req: Request,
+    req: RequestWithFiles,
     res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     if (!req.files) return next();
 
     try {
@@ -151,12 +201,11 @@ class ProductController extends BaseController<IProduct> {
       const newPublicIds: string[] = [];
       const oldImages = req.body.images || []; // Existing images from database
       let newOgImage: string | undefined;
-      let newOgImagePublicId: string | undefined;
 
       // Handle main product images
-      if ((req as any).files.image) {
+      if (req.files.image) {
         await Promise.all(
-          (req as any).files.image.map(async (image: Express.Multer.File) => {
+          req.files.image.map(async (image: Express.Multer.File) => {
             const { secure_url, public_id } = (await uploadImage(
               image,
               "e-buy/products"
@@ -169,15 +218,14 @@ class ProductController extends BaseController<IProduct> {
       }
 
       // Handle ogImage
-      if ((req as any).files.ogImage) {
-        const ogImageFile = (req as any).files.ogImage[0];
-        const { secure_url, public_id } = (await uploadImage(
+      if (req.files.ogImage) {
+        const ogImageFile = req.files.ogImage[0];
+        const { secure_url } = (await uploadImage(
           ogImageFile,
           "e-buy/products/og"
         )) as UploadApiResponse;
 
         newOgImage = secure_url;
-        newOgImagePublicId = public_id;
       }
 
       // Delete old images from Cloudinary that are not in newPublicIds
@@ -189,7 +237,9 @@ class ProductController extends BaseController<IProduct> {
 
       // Delete old ogImage if it exists and is being replaced
       if (req.body.ogImage && newOgImage) {
-        const oldOgImageMatch = req.body.ogImage.match(/upload\/(?:v\d+\/)?([^\\.]+)/);
+        const oldOgImageMatch = req.body.ogImage.match(
+          /upload\/(?:v\d+\/)?([^\\.]+)/
+        );
         if (oldOgImageMatch) {
           await cloudinary.uploader.destroy(oldOgImageMatch[1]);
         }
@@ -213,9 +263,12 @@ class ProductController extends BaseController<IProduct> {
         req.body.ogImage = newOgImage;
       }
 
-      const regex = /[0-9A-Za-z]{8}-[0-9A-Za-z]{4}-4[0-9A-Za-z]{3}-[89ABab][0-9A-Za-z]{3}-[0-9A-Za-z]{12}/;
+      const regex =
+        /[0-9A-Za-z]{8}-[0-9A-Za-z]{4}-4[0-9A-Za-z]{3}-[89ABab][0-9A-Za-z]{3}-[0-9A-Za-z]{12}/;
       // Use regex.exec to extract the UUID and assign it to the public id in DB
-      req.body.cloudinaryPublicId = (regex.exec(newPublicIds[0]) as unknown as string)[0];
+      req.body.cloudinaryPublicId = (
+        regex.exec(newPublicIds[0]) as unknown as string
+      )[0];
 
       next();
     } catch (error) {
@@ -225,7 +278,11 @@ class ProductController extends BaseController<IProduct> {
 
   // this middleware will check if the product exist in case of creating and get the product id in case of updating
   // so we can use it on the image name
-  checkProduct = async (req: Request, res: Response, next: NextFunction) => {
+  checkProduct = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       // If it's a POST request (creating a new product), return an error as the tour already exists
       if (req.method === "POST") {

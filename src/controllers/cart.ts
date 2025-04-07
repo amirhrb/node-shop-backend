@@ -13,7 +13,7 @@ class CartController extends BaseController<ICart> {
     req: Request,
     res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     try {
       const { product, quantity } = req.body;
       const userId = req.user.id;
@@ -64,7 +64,11 @@ class CartController extends BaseController<ICart> {
       next(error);
     }
   };
-  updateCartItem = async (req: Request, res: Response, next: NextFunction) => {
+  updateCartItem = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { quantity, product, user } = req.body;
 
@@ -74,7 +78,9 @@ class CartController extends BaseController<ICart> {
 
       // Prevent changing ownership or product
       if (product || user) {
-        return next(new AppError("Cannot change product or user of cart item", 400));
+        return next(
+          new AppError("Cannot change product or user of cart item", 400)
+        );
       }
 
       if (parseInt(quantity) === 0) {
@@ -87,7 +93,11 @@ class CartController extends BaseController<ICart> {
     }
   };
 
-  checkCartOwner = async (req: Request, res: Response, next: NextFunction) => {
+  checkCartOwner = async (
+    req: Request,
+    _res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const cart = await Cart.findById(req.params.id);
 
@@ -95,18 +105,28 @@ class CartController extends BaseController<ICart> {
         return next(new AppError("Cart not found", 404));
       }
 
-      cart.user.toString() === req.user.id.toString()
-        ? next()
-        : next(new AppError("You don't have cart with this id", 403));
+      if (cart.user.toString() === req.user.id.toString()) {
+        next();
+      } else {
+        next(new AppError("You don't have cart with this id", 403));
+      }
     } catch (error) {
       next(error);
     }
   };
-  deleteCartItem = async (req: Request, res: Response, next: NextFunction) => {
+  deleteCartItem = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     return this.deleteOne()(req, res, next);
   };
 
-  getCartList = async (req: Request, res: Response, next: NextFunction) => {
+  getCartList = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       req.query.user = req.user;
 

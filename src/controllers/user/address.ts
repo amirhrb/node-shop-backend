@@ -9,7 +9,11 @@ class AddressController extends BaseController<IAddress> {
     super(Address);
   }
 
-  createAddress = async (req: Request, res: Response, next: NextFunction) => {
+  createAddress = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -27,7 +31,7 @@ class AddressController extends BaseController<IAddress> {
         await User.findByIdAndUpdate(
           req.user.id,
           { address: req.user.id },
-          { session },
+          { session }
         );
 
         res.status(201).json({
@@ -45,7 +49,11 @@ class AddressController extends BaseController<IAddress> {
     }
   };
 
-  getAddress = async (req: Request, res: Response, next: NextFunction) => {
+  getAddress = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       req.params.id = req.user.id;
       return await this.getOne()(req, res, next);
@@ -54,7 +62,11 @@ class AddressController extends BaseController<IAddress> {
     }
   };
 
-  deleteAddress = async (req: Request, res: Response, next: NextFunction) => {
+  deleteAddress = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -63,7 +75,7 @@ class AddressController extends BaseController<IAddress> {
 
       // Update the user document within the transaction
       await User.findByIdAndUpdate(req.user.id, { address: null }).session(
-        session,
+        session
       );
 
       // Delete the address within the transaction

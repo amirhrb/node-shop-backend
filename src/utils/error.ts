@@ -14,7 +14,18 @@ export enum ErrorType {
 interface ErrorDetails {
   field?: string;
   message: string;
-  value?: any;
+  value?: string | number | boolean | null | undefined;
+}
+
+interface ZarinpalError {
+  statusCode?: number;
+  message?: string;
+  code?: number;
+}
+
+interface MongoDBDuplicateKeyError extends MongooseError {
+  code: number;
+  keyPattern: Record<string, unknown>;
 }
 
 class AppError extends Error {
@@ -74,8 +85,8 @@ class AppError extends Error {
       appError.details = details;
       return appError;
     }
-    if ((error as any).code === 11000) {
-      const duplicateError = error as any; // MongoDB duplicate key error
+    if ((error as MongoDBDuplicateKeyError).code === 11000) {
+      const duplicateError = error as MongoDBDuplicateKeyError;
       const field = Object.keys(duplicateError.keyPattern)[0];
       const appError = new AppError(
         `Duplicate field value: ${field}. Please use another value.`,
@@ -89,14 +100,14 @@ class AppError extends Error {
     return new AppError("Something went wrong", 500);
   }
 
-  public static handleZarinpalError(error: any): AppError {
+  public static handleZarinpalError(error: ZarinpalError): AppError {
     const statusCode = error.statusCode || 500;
     const message = error.message || "Payment processing failed";
 
     const paymentError = new AppError(message, statusCode, ErrorType.PAYMENT);
     paymentError.details = [
       {
-        message: error.message,
+        message: message,
         ...(error.code && { field: "code", value: error.code }),
       },
     ];

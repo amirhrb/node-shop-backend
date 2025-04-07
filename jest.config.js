@@ -1,4 +1,4 @@
-/* eslint-disable no-undef */
+ 
 /** @type {import('jest').Config} */
 module.exports = {
   preset: "ts-jest",

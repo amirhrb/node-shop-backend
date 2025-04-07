@@ -7,17 +7,19 @@ export interface IProduct extends Document {
   images: string[];
   ogImage: string;
   category: string;
-  currency: "IRR" | "USD";
+  currency: "IRR" | "IRT";
   stockQuantity: number;
   ratingsAverage: number;
   numOfReviews: number;
   cloudinaryPublicId: string;
   isAvailable: boolean;
+  isArchived: boolean;
+  // TODO: add controller for discount
   discount?: {
     percentage: number;
     validUntil: Date;
   };
-  specifications: Record<string, any>;
+  specifications: Record<string, unknown>;
   weight?: number;
   dimensions?: {
     length: number;
@@ -92,6 +94,10 @@ const productSchema: Schema<IProduct> = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isArchived: {
+      type: Boolean,
+      default: true,
+    },
     discount: {
       percentage: {
         type: Number,
@@ -123,10 +129,12 @@ const productSchema: Schema<IProduct> = new mongoose.Schema(
       },
     },
     tags: [String],
-    likes: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Like",
-    }]
+    likes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Like",
+      },
+    ],
   },
   {
     timestamps: true,
@@ -156,26 +164,9 @@ productSchema.virtual("stockStatus").get(function (this: IProduct) {
 });
 
 // Virtual field for like count
-productSchema.virtual('likeCount').get(function(this: IProduct) {
-  return this.likes.length;
+productSchema.virtual("likeCount").get(function (this: IProduct) {
+  return (this.likes && this.likes.length) || 0;
 });
-
-// Method to check if a user has liked the product
-productSchema.methods.isLikedBy = function(userId: mongoose.Types.ObjectId): boolean {
-  return this.likes.some((likeId: mongoose.Types.ObjectId) => likeId.equals(userId));
-};
-
-// Method to add a like
-productSchema.methods.addLike = function(likeId: mongoose.Types.ObjectId): void {
-  if (!this.likes.some((id: mongoose.Types.ObjectId) => id.equals(likeId))) {
-    this.likes.push(likeId);
-  }
-};
-
-// Method to remove a like
-productSchema.methods.removeLike = function(likeId: mongoose.Types.ObjectId): void {
-  this.likes = this.likes.filter((id: mongoose.Types.ObjectId) => !id.equals(likeId));
-};
 
 // Indexes
 productSchema.index({ name: 1 });

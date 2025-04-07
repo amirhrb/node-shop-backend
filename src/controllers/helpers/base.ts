@@ -2,6 +2,17 @@ import { NextFunction, Request, Response } from "express";
 import mongoose, { Document, Model, PopulateOptions } from "mongoose";
 import AppError from "../../utils/error";
 import { APIFeatures } from "../../utils/api-features";
+import { ValidatedEnv } from "../../config/env.config";
+
+export interface RequestWithEnv extends Request {
+  env: ValidatedEnv;
+}
+
+export type CustomRequestHandler = (
+  req: RequestWithEnv,
+  res: Response,
+  next: NextFunction
+) => Promise<void> | void;
 
 class BaseController<T extends Document> {
   private model: Model<T>;
@@ -11,7 +22,11 @@ class BaseController<T extends Document> {
   }
 
   deleteOne = (session?: mongoose.ClientSession) => {
-    return async (req: Request, res: Response, next: NextFunction) => {
+    return async (
+      req: RequestWithEnv,
+      res: Response,
+      next: NextFunction
+    ): Promise<void> => {
       try {
         const { id } = req.params;
         const document = await this.model
@@ -33,7 +48,11 @@ class BaseController<T extends Document> {
   };
 
   updateOne = (session?: mongoose.ClientSession) => {
-    return async (req: Request, res: Response, next: NextFunction) => {
+    return async (
+      req: RequestWithEnv,
+      res: Response,
+      next: NextFunction
+    ): Promise<void> => {
       try {
         const { id } = req.params;
         const document = await this.model
@@ -61,20 +80,19 @@ class BaseController<T extends Document> {
     fieldsToExclude?: string[],
     session?: mongoose.ClientSession
   ) => {
-    return async (req: Request, res: Response, next: NextFunction) => {
+    return async (
+      req: RequestWithEnv,
+      res: Response,
+      next: NextFunction
+    ): Promise<void> => {
       try {
+        if (fieldsToExclude) {
+          fieldsToExclude.forEach((field) => delete req.body[field]);
+        }
+
         const newDocument = await this.model.create([req.body], { session });
 
-        const transformedData = newDocument[0].toObject() as Record<
-          string,
-          any
-        >;
-        if (fieldsToExclude && fieldsToExclude.length) {
-          // Transform the document before sending as response
-          fieldsToExclude.forEach((field) => {
-            delete transformedData[field];
-          });
-        }
+        const transformedData = newDocument[0].toObject();
 
         res.status(201).json({
           status: "success",
@@ -90,7 +108,11 @@ class BaseController<T extends Document> {
     populateOptions?: PopulateOptions,
     session?: mongoose.ClientSession
   ) => {
-    return async (req: Request, res: Response, next: NextFunction) => {
+    return async (
+      req: RequestWithEnv,
+      res: Response,
+      next: NextFunction
+    ): Promise<void> => {
       try {
         const { id } = req.params;
 
@@ -118,11 +140,18 @@ class BaseController<T extends Document> {
   };
 
   getAll = (
-    additionalData?: Record<string, any>,
+    additionalData?: Record<
+      string,
+      object | string | number | boolean | null | undefined
+    >,
     session?: mongoose.ClientSession,
     enableSearch: boolean = false
   ) => {
-    return async (req: Request, res: Response, next: NextFunction) => {
+    return async (
+      req: RequestWithEnv,
+      res: Response,
+      next: NextFunction
+    ): Promise<void> => {
       try {
         const features = new APIFeatures(this.model.find(), req.query)
           .filter(enableSearch)
@@ -131,6 +160,7 @@ class BaseController<T extends Document> {
           .paginate();
 
         const documents = await features.query.session(session || null);
+
         res.status(200).json({
           status: "success",
           results: documents.length,

@@ -1,0 +1,177 @@
+{
+  "products": [
+    {
+      "name": "iPhone 13 Pro",
+      "price": 85000000,
+      "description": "Latest iPhone model with advanced camera system and A15 Bionic chip",
+      "images": [
+        "iphone13pro-1.jpg",
+        "iphone13pro-2.jpg"
+      ],
+      "ogImage": "iphone13pro-og.jpg",
+      "category": "Electronics",
+      "currency": "IRR",
+      "stockQuantity": 15,
+      "ratingsAverage": 4.8,
+      "numOfReviews": 120,
+      "cloudinaryPublicId": "products/iphone13pro",
+      "isAvailable": true,
+      "discount": {
+        "percentage": 5,
+        "validUntil": "2024-12-31T23:59:59.999Z"
+      },
+      "specifications": {
+        "color": "Graphite",
+        "storage": "256GB",
+        "ram": "6GB",
+        "screen": "6.1 inch Super Retina XDR"
+      },
+      "weight": 204,
+      "dimensions": {
+        "length": 146.7,
+        "width": 71.5,
+        "height": 7.65
+      },
+      "tags": ["iphone", "apple", "smartphone", "electronics"],
+      "likes": [],
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Samsung Galaxy S21",
+      "price": 65000000,
+      "description": "Flagship Android smartphone with powerful performance and versatile camera system",
+      "images": [
+        "samsung-s21-1.jpg",
+        "samsung-s21-2.jpg"
+      ],
+      "ogImage": "samsung-s21-og.jpg",
+      "category": "Electronics",
+      "currency": "IRR",
+      "stockQuantity": 20,
+      "ratingsAverage": 4.6,
+      "numOfReviews": 85,
+      "cloudinaryPublicId": "products/samsung-s21",
+      "isAvailable": true,
+      "specifications": {
+        "color": "Phantom Gray",
+        "storage": "128GB",
+        "ram": "8GB",
+        "screen": "6.2 inch Dynamic AMOLED"
+      },
+      "weight": 169,
+      "dimensions": {
+        "length": 151.7,
+        "width": 71.2,
+        "height": 7.9
+      },
+      "tags": ["samsung", "android", "smartphone", "electronics"],
+      "likes": [],
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "MacBook Pro M2",
+      "price": 120000000,
+      "description": "Powerful laptop with M2 chip, perfect for professionals and content creators",
+      "images": [
+        "macbook-m2-1.jpg",
+        "macbook-m2-2.jpg"
+      ],
+      "ogImage": "macbook-m2-og.jpg",
+      "category": "Electronics",
+      "currency": "IRR",
+      "stockQuantity": 8,
+      "ratingsAverage": 4.9,
+      "numOfReviews": 45,
+      "cloudinaryPublicId": "products/macbook-m2",
+      "isAvailable": true,
+      "discount": {
+        "percentage": 3,
+        "validUntil": "2024-06-30T23:59:59.999Z"
+      },
+      "specifications": {
+        "color": "Space Gray",
+        "storage": "512GB SSD",
+        "ram": "16GB",
+        "screen": "14-inch Liquid Retina XDR"
+      },
+      "weight": 1600,
+      "dimensions": {
+        "length": 312.6,
+        "width": 221.2,
+        "height": 15.5
+      },
+      "tags": ["apple", "laptop", "macbook", "electronics"],
+      "likes": [],
+      "createdAt": "2024-01-02T00:00:00.000Z",
+      "updatedAt": "2024-01-02T00:00:00.000Z"
+    },
+    {
+      "name": "Sony WH-1000XM4",
+      "price": 45000000,
+      "description": "Premium wireless noise-canceling headphones with exceptional sound quality",
+      "images": [
+        "sony-wh1000xm4-1.jpg",
+        "sony-wh1000xm4-2.jpg"
+      ],
+      "ogImage": "sony-wh1000xm4-og.jpg",
+      "category": "Electronics",
+      "currency": "IRR",
+      "stockQuantity": 25,
+      "ratingsAverage": 4.7,
+      "numOfReviews": 150,
+      "cloudinaryPublicId": "products/sony-wh1000xm4",
+      "isAvailable": true,
+      "specifications": {
+        "color": "Black",
+        "batteryLife": "30 hours",
+        "connectivity": "Bluetooth 5.0",
+        "noiseCancellation": "Active Noise Cancellation"
+      },
+      "weight": 254,
+      "dimensions": {
+        "length": 285,
+        "width": 185,
+        "height": 40
+      },
+      "tags": ["sony", "headphones", "audio", "electronics"],
+      "likes": [],
+      "createdAt": "2024-01-03T00:00:00.000Z",
+      "updatedAt": "2024-01-03T00:00:00.000Z"
+    },
+    {
+      "name": "iPad Pro 12.9",
+      "price": 95000000,
+      "description": "Professional tablet with M2 chip and stunning Liquid Retina XDR display",
+      "images": [
+        "ipad-pro-1.jpg",
+        "ipad-pro-2.jpg"
+      ],
+      "ogImage": "ipad-pro-og.jpg",
+      "category": "Electronics",
+      "currency": "IRR",
+      "stockQuantity": 12,
+      "ratingsAverage": 4.8,
+      "numOfReviews": 75,
+      "cloudinaryPublicId": "products/ipad-pro",
+      "isAvailable": true,
+      "specifications": {
+        "color": "Silver",
+        "storage": "256GB",
+        "ram": "8GB",
+        "screen": "12.9-inch Liquid Retina XDR"
+      },
+      "weight": 682,
+      "dimensions": {
+        "length": 280.6,
+        "width": 214.9,
+        "height": 6.4
+      },
+      "tags": ["apple", "ipad", "tablet", "electronics"],
+      "likes": [],
+      "createdAt": "2024-01-04T00:00:00.000Z",
+      "updatedAt": "2024-01-04T00:00:00.000Z"
+    }
+  ]
+} 

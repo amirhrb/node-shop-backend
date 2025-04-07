@@ -1,9 +1,12 @@
-/* eslint-disable no-unused-vars */
 import mongoose, { Document, Schema, Model } from "mongoose";
 
 export interface ICart extends Document {
   user: mongoose.Types.ObjectId;
-  product: { _id: mongoose.Types.ObjectId; name: string; stockQuantity: number };
+  product: {
+    _id: mongoose.Types.ObjectId;
+    name: string;
+    stockQuantity: number;
+  };
   quantity: number;
   price: number;
   populate: () => Promise<ICart>;
@@ -37,7 +40,7 @@ const cartItemSchema: Schema<ICart> = new Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 cartItemSchema.index({ user: 1, product: 1 });
@@ -52,7 +55,9 @@ cartItemSchema.pre(/^find/, function (next) {
   next();
 });
 
-cartItemSchema.statics.calcTotalPrice = async function (userId: string) {
+cartItemSchema.statics.calcTotalPrice = async function (
+  userId: string
+): Promise<number> {
   const total = await this.aggregate([
     {
       $match: {
@@ -70,6 +75,9 @@ cartItemSchema.statics.calcTotalPrice = async function (userId: string) {
   return total.length > 0 ? total[0].totalPrice : 0;
 };
 
-const CartItem: ICartModel = mongoose.model<ICart, ICartModel>("Cart", cartItemSchema);
+const CartItem: ICartModel = mongoose.model<ICart, ICartModel>(
+  "Cart",
+  cartItemSchema
+);
 
 export default CartItem;

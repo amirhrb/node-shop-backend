@@ -1,15 +1,14 @@
 import mongoose, { Document, Model } from "mongoose";
 import Product from "./product/product";
 
+export interface OrderItem {
+  product: mongoose.Types.ObjectId;
+  quantity: number;
+}
 export interface IOrder extends Document {
   user: string;
-  orderItems: [
-    {
-      product: string;
-      quantity: number;
-    }
-  ];
-  shippingAddress: string;
+  orderItems: OrderItem[];
+  shippingAddress: mongoose.Types.ObjectId;
   paymentMethod?: string;
   totalAmount: number;
   paymentStatus?: boolean;
@@ -18,8 +17,6 @@ export interface IOrder extends Document {
   shippedAt: Date;
   transactionId?: string;
 }
-
-interface IOrderModel extends Model<IOrder> {}
 
 const orderSchema = new mongoose.Schema(
   {
@@ -43,7 +40,8 @@ const orderSchema = new mongoose.Schema(
       },
     ],
     shippingAddress: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Address",
       required: [true, "Shipping Address is required"],
     },
     paymentMethod: {
@@ -79,7 +77,7 @@ const orderSchema = new mongoose.Schema(
     currency: {
       type: String,
       enum: {
-        values: ["IRR", "USD"],
+        values: ["IRR", "IRT"],
         message: "Invalid Currency",
       },
       default: "IRR",
@@ -130,7 +128,10 @@ orderSchema.pre("save", async function (next) {
   next();
 });
 
-const adjustStock = async (orderItems: any[], increment: boolean) => {
+const adjustStock = async (
+  orderItems: OrderItem[],
+  increment: boolean
+): Promise<void> => {
   const adjustment = increment ? 1 : -1;
 
   const updateStockPromises = orderItems.map(async (item) => {
@@ -144,9 +145,6 @@ const adjustStock = async (orderItems: any[], increment: boolean) => {
   await Promise.all(updateStockPromises);
 };
 
-const Order: IOrderModel = mongoose.model<IOrder, IOrderModel>(
-  "Order",
-  orderSchema
-);
+const Order: Model<IOrder> = mongoose.model<IOrder>("Order", orderSchema);
 
 export default Order;

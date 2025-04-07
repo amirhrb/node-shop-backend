@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import CartController from "../controllers/cart";
 import Cart from "../models/cart";
 import Product from "../models/product/product";
-import AppError from "../utils/error";
 
 // Set test environment
 process.env.NODE_ENV = "test";

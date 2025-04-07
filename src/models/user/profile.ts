@@ -36,7 +36,8 @@ const profileSchema: Schema<IProfile> = new mongoose.Schema(
     },
     photo: {
       type: String,
-      default: "https://icon-library.com/images/anonymous-avatar-icon/anonymous-avatar-icon-25.jpg",
+      default:
+        "https://icon-library.com/images/anonymous-avatar-icon/anonymous-avatar-icon-25.jpg",
     },
     dateOfBirth: {
       type: Date,
@@ -53,7 +54,7 @@ const profileSchema: Schema<IProfile> = new mongoose.Schema(
       type: String,
       trim: true,
       validate: {
-        validator: function (v: string) {
+        validator: function (v: string): boolean {
           return /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/.test(
             v
           );

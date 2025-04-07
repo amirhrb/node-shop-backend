@@ -4,9 +4,11 @@ import validator from "validator";
 import Profile from "./profile";
 import Permission from "./permission";
 import Role from "./role";
+import { defaultUserPermissions } from "../../utils/permission-factory";
 
 // Define IUser interface extending Document
 export interface IUser extends Document {
+  _id: mongoose.Types.ObjectId;
   username: string;
   firstName: string;
   lastName: string;
@@ -26,8 +28,6 @@ export interface IUser extends Document {
   createPhoneVerificationToken: () => string;
   checkLogin: () => boolean;
 }
-
-export interface IUserModel extends Model<IUser> {}
 
 const userSchema: Schema<IUser> = new mongoose.Schema(
   {
@@ -49,7 +49,7 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
       unique: true,
       lowercase: true,
       validate: {
-        validator: (value: string | undefined) => {
+        validator: (value: string | undefined): boolean => {
           // Skip validation if email is not provided
           if (!value) return true;
           return validator.isEmail(value);
@@ -129,65 +129,74 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
 userSchema.index({ createdAt: -1 });
 
 userSchema.pre("save", async function (next) {
-  const user = this;
-  if (!user.isNew) return next();
+  if (!this.isNew) return next();
 
-  const session = user.$session(); // Get the current session
+  const session = this.$session();
   if (!session) return next(new Error("Transaction session not found"));
 
   try {
     // Create profile with the same _id as user document
-    await Profile.create([{ _id: user._id }], { session });
+    await Profile.create([{ _id: this._id }], { session });
 
     // Only add default user role if no roles are assigned
-    if (!user.roles || user.roles.length === 0) {
-      // Create role and permission
-      const role = await Role.findOne({ name: "user" }).session(session);
-      if (!role) {
+    if (!this.roles || this.roles.length === 0) {
+      // Find or create default user role
+      const defaultRole = await Role.findOne({
+        name: "user",
+        isDefault: true,
+      }).session(session);
+
+      if (!defaultRole) {
+        // Create default user role with basic permissions
         const newRole = await Role.create(
-          [{ name: "user", users: [user.id] }],
-          {
-            session,
-          }
-        );
-        const newPermission = await Permission.create(
-          [{ name: "user", roles: [newRole[0]._id] }],
+          [
+            {
+              name: "user",
+              description: "Default user role with basic permissions",
+              isDefault: true,
+              users: [this.id],
+            },
+          ],
           { session }
         );
-        newRole[0].permissions.push(newPermission[0]._id);
+
+        // Create basic permissions for the user role
+        const userPermissions = await Permission.create(
+          defaultUserPermissions.map((permission) => ({
+            ...permission,
+            roles: [newRole[0]._id],
+          })),
+          { session }
+        );
+
+        // Add permissions to role
+        newRole[0].permissions = userPermissions.map((p) => p._id);
         await newRole[0].save({ session });
+
+        // Add role and permissions to user
         this.roles.push(newRole[0]._id as mongoose.Types.ObjectId);
-        this.permissions.push(newPermission[0]._id as mongoose.Types.ObjectId);
+        this.permissions.push(
+          ...userPermissions.map((p) => p._id as mongoose.Types.ObjectId)
+        );
       } else {
-        const permission = await Permission.findOne({
-          name: "user",
-          roles: role._id,
-        }).session(session);
-        if (!permission) {
-          const newPermission = await Permission.create(
-            [{ name: "user", roles: [role._id] }],
-            { session }
-          );
-          role.permissions.push(newPermission[0]._id);
-          await role.save({ session });
-          this.permissions.push(
-            newPermission[0]._id as mongoose.Types.ObjectId
-          );
-        } else {
-          this.permissions.push(permission._id as mongoose.Types.ObjectId);
-        }
-        role.users.push(user.id);
-        await role.save({ session });
-        this.roles.push(role._id as mongoose.Types.ObjectId);
+        // Add existing default role to user
+        this.roles.push(defaultRole._id as mongoose.Types.ObjectId);
+        this.permissions.push(
+          ...(defaultRole.permissions as mongoose.Types.ObjectId[])
+        );
+
+        // Add user to role's users array
+        defaultRole.users.push(this.id);
+        await defaultRole.save({ session });
       }
     }
 
     // Set the profile field in the user document
-    this.profile = user._id as mongoose.Types.ObjectId;
+    this.profile = this._id as mongoose.Types.ObjectId;
 
     next();
-  } catch (error: any) {
-    next(error);
+  } catch (error: unknown) {
+    next(error as Error);
   }
 });
 
@@ -236,6 +245,6 @@ userSchema.methods.checkLogin = function (): boolean {
 };
 
 // Create and export the User model
-const User: IUserModel = mongoose.model<IUser, IUserModel>("User", userSchema);
+const User = mongoose.model<IUser, Model<IUser>>("User", userSchema);
 
 export default User;

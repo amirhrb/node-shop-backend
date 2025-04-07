@@ -9,7 +9,11 @@ class FavoritesController extends BaseController<IFavorites> {
     super(Favorite);
   }
 
-  addFavorite = async (req: Request, res: Response, next: NextFunction) => {
+  addFavorite = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     const { productId } = req.body;
     if (!productId) {
       return next(new AppError("Product id is required", 400));
@@ -32,7 +36,7 @@ class FavoritesController extends BaseController<IFavorites> {
               products: [productId],
             },
           ],
-          { session },
+          { session }
         );
         favorite = favorite[0];
       } else {
@@ -57,7 +61,11 @@ class FavoritesController extends BaseController<IFavorites> {
     }
   };
 
-  getFavorites = async (req: Request, res: Response, next: NextFunction) => {
+  getFavorites = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       req.params.id = req.user.id;
       return await this.getOne()(req, res, next);
@@ -66,7 +74,11 @@ class FavoritesController extends BaseController<IFavorites> {
     }
   };
 
-  deleteFavorite = async (req: Request, res: Response, next: NextFunction) => {
+  deleteFavorite = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -78,7 +90,7 @@ class FavoritesController extends BaseController<IFavorites> {
       }
 
       favorites.products = favorites.products.filter(
-        (product) => product.toString() !== req.params.productId,
+        (product) => product.toString() !== req.params.productId
       );
 
       await favorites.save({ session });
@@ -99,8 +111,8 @@ class FavoritesController extends BaseController<IFavorites> {
   deleteAllFavorites = async (
     req: Request,
     res: Response,
-    next: NextFunction,
-  ) => {
+    next: NextFunction
+  ): Promise<void> => {
     try {
       req.params.id = req.user.id;
       return await this.deleteOne()(req, res, next);

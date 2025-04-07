@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import ProductController from "../controllers/product/product";
 import Product from "../models/product/product";
 import AppError from "../utils/error";
@@ -99,7 +99,7 @@ jest.mock("../utils/uploader", () => {
     upload = {
       fields: jest
         .fn()
-        .mockReturnValue((req: Request, res: Response, next: Function) => {
+        .mockReturnValue((req: Request, res: Response, next: NextFunction) => {
           next();
         }),
     };

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
-import ZarinpalCheckout from "zarinpal-checkout";
-import Order, { IOrder } from "../models/order";
+import ZarinPal from "zarinpal-node-sdk";
+import Order, { IOrder, OrderItem } from "../models/order";
 import BaseController from "./helpers/base";
 import Cart, { ICart } from "../models/cart";
 import AppError from "../utils/error";
@@ -27,40 +27,9 @@ const logger = createLogger({
   ],
 });
 
-interface ZarinpalPaymentRequest {
-  Amount: number;
-  CallbackURL: string;
-  Description: string;
-  Email: string;
-  Mobile: string;
-  metadata: {
-    userId: string;
-    shippingAddress: string;
-    paymentMethod: string;
-    products: string;
-    totalAmount: string;
-  };
-}
-
-type PaymentResponse = {
-  status: number;
-  message?: string;
-  url?: string;
-  authority?: string;
-  RefId?: string;
-  metadata?: Record<string, any>;
-};
-
-type ZarinpalInstance = {
-  PaymentRequest: (data: ZarinpalPaymentRequest) => Promise<PaymentResponse>;
-  PaymentVerification: (data: {
-    Amount: number;
-    Authority: string;
-  }) => Promise<PaymentResponse>;
-};
-
 class OrderController extends BaseController<IOrder> {
-  private zarinpal: ZarinpalInstance;
+  private zarinpal;
+  private BaseUrl;
   private readonly CURRENCY = "IRR";
   private readonly PAYMENT_METHODS = {
     ONLINE: "online",
@@ -83,6 +52,7 @@ class OrderController extends BaseController<IOrder> {
   constructor() {
     super(Order);
     this.zarinpal = this.initializePaymentGateway();
+    this.BaseUrl = this.initializePaymentBaseURL();
   }
 
   private async retryOperation<T>(
@@ -101,7 +71,13 @@ class OrderController extends BaseController<IOrder> {
     }
   }
 
-  private initializePaymentGateway(): ZarinpalInstance {
+  private initializePaymentBaseURL(): string {
+    return process.env.NODE_ENV !== "production"
+      ? "https://sandbox.zarinpal.com/pg/StartPay/"
+      : "https://zarinpal.com/pg/StartPay/";
+  }
+
+  private initializePaymentGateway(): ZarinPal {
     try {
       const merchantId = process.env.ZARINPAL_MERCHANT_ID;
       const isSandbox = process.env.NODE_ENV !== "production";
@@ -110,10 +86,10 @@ class OrderController extends BaseController<IOrder> {
         throw new Error("ZARINPAL_MERCHANT_ID is not defined");
       }
 
-      const gateway = ZarinpalCheckout.create(
+      const gateway = new ZarinPal({
         merchantId,
-        isSandbox
-      ) as ZarinpalInstance;
+        sandbox: isSandbox,
+      });
       logger.info("Payment gateway initialized successfully");
       return gateway;
     } catch (error) {
@@ -125,7 +101,7 @@ class OrderController extends BaseController<IOrder> {
   private validatePaymentAmount(amount: number): void {
     if (amount < this.MIN_AMOUNT) {
       throw new AppError(
-        `Payment amount must be at least ${this.MIN_AMOUNT / 10} IRR`,
+        `Payment amount must be at least ${this.MIN_AMOUNT} IRR`,
         400
       );
     }
@@ -171,10 +147,10 @@ class OrderController extends BaseController<IOrder> {
     session.startTransaction();
 
     try {
-      const { shippingAddress, paymentMethod } = req.body;
+      const { addressId, paymentMethod } = req.body;
 
-      if (!shippingAddress) {
-        throw new AppError("shippingAddress is required", 400);
+      if (!addressId) {
+        throw new AppError("addressId is required", 400);
       }
 
       // Remove status and paymentStatus from req.body if they are present
@@ -184,10 +160,13 @@ class OrderController extends BaseController<IOrder> {
       const cartList = await this.checkStockAvailability(req.user.id);
       const totalAmount = await Cart.calcTotalPrice(req.user.id);
 
-      const products = cartList.map((item) => ({
-        product: item.product._id.toString(),
-        quantity: item.quantity,
-      }));
+      const products = cartList.map(
+        (item) =>
+          ({
+            product: item.product._id,
+            quantity: item.quantity,
+          } as OrderItem)
+      );
 
       if (paymentMethod === this.PAYMENT_METHODS.ONLINE) {
         await this.handleOnlinePayment(
@@ -195,7 +174,7 @@ class OrderController extends BaseController<IOrder> {
           res,
           session,
           totalAmount,
-          shippingAddress,
+          addressId,
           products
         );
       } else {
@@ -204,7 +183,7 @@ class OrderController extends BaseController<IOrder> {
           res,
           session,
           totalAmount,
-          shippingAddress,
+          addressId,
           products
         );
       }
@@ -220,42 +199,34 @@ class OrderController extends BaseController<IOrder> {
     res: Response,
     session: ClientSession,
     totalAmount: number,
-    shippingAddress: string,
-    products: any[]
+    addressId: string,
+    products: OrderItem[]
   ): Promise<void> {
     try {
       this.validatePaymentAmount(totalAmount);
 
-      const callbackUrl = `${req.protocol}://${req.get(
+      const CallbackURL = `${req.protocol}://${req.get(
         "host"
       )}/api/v1/orders/verify-payment?Amount=${totalAmount}`;
 
-      const response: PaymentResponse = await this.retryOperation(() =>
-        this.zarinpal.PaymentRequest({
-          Amount: parseInt(totalAmount.toString()),
-          CallbackURL: callbackUrl,
-          Description: "Payment for order",
-          Email: req.user.email,
-          Mobile: req.user.phone,
-          metadata: {
-            userId: req.user.id,
-            shippingAddress,
-            paymentMethod: this.PAYMENT_METHODS.ONLINE,
-            products: JSON.stringify(products),
-            totalAmount: totalAmount.toString(),
-          },
+      const response = await this.retryOperation(() =>
+        this.zarinpal.payments.create({
+          amount: totalAmount,
+          callback_url: CallbackURL,
+          description: "Payment for order",
+          referrer_id: req.user.id,
         })
       );
 
-      if (response.status === 100) {
+      if (response.data.code === 100) {
         logger.info(`Payment initiated for user ${req.user.id}`);
         const newOrder: Partial<IOrder> = {
           user: req.user.id,
           totalAmount,
-          orderItems: products as IOrder["orderItems"],
-          shippingAddress,
+          orderItems: products,
+          shippingAddress: new mongoose.Types.ObjectId(addressId),
           paymentMethod: this.PAYMENT_METHODS.ONLINE,
-          transactionId: response.authority,
+          transactionId: response.data.authority,
           currency: this.CURRENCY,
           status: "not-paid",
         };
@@ -268,16 +239,18 @@ class OrderController extends BaseController<IOrder> {
 
         res.status(201).json({
           status: "success",
-          url: response.url,
-          authority: response.authority,
+          data: {
+            url: this.BaseUrl + response.data.authority,
+            authority: response.data.authority,
+          },
           amount: totalAmount,
         });
       } else {
         logger.error(
-          `Payment initiation failed for user ${req.user.id}: ${response.message}`
+          `Payment initiation failed for user ${req.user.id} with status: ${response.data.code}`
         );
         throw new AppError(
-          `Payment initiation failed: ${response.message || "Unknown error"}`,
+          `Payment initiation failed: ${response.errors || "Unknown error"}`,
           400
         );
       }
@@ -292,14 +265,14 @@ class OrderController extends BaseController<IOrder> {
     res: Response,
     session: ClientSession,
     totalAmount: number,
-    shippingAddress: string,
-    products: any[]
+    addressId: string,
+    products: OrderItem[]
   ): Promise<void> {
     const newOrder: Partial<IOrder> = {
       user: req.user.id,
       totalAmount,
-      orderItems: products as IOrder["orderItems"],
-      shippingAddress,
+      orderItems: products,
+      shippingAddress: new mongoose.Types.ObjectId(addressId),
       paymentMethod: this.PAYMENT_METHODS.CASH_ON_DELIVERY,
       currency: this.CURRENCY,
       status: "pay-on-delivery",
@@ -340,14 +313,14 @@ class OrderController extends BaseController<IOrder> {
           );
         }
 
-        const response: PaymentResponse = await this.retryOperation(() =>
-          this.zarinpal.PaymentVerification({
-            Amount: parseInt(Amount as string),
-            Authority: Authority as string,
+        const response = await this.retryOperation(() =>
+          this.zarinpal.verifications.verify({
+            amount: parseInt(Amount as string),
+            authority: Authority as string,
           })
         );
 
-        if (response.status === 100 || response.status === 101) {
+        if (response.data.code === 100 || response.data.code === 101) {
           const order = await Order.findOne({
             transactionId: Authority,
           }).session(session);
@@ -363,54 +336,42 @@ class OrderController extends BaseController<IOrder> {
           await session.commitTransaction();
           session.endSession();
 
-          logger.info(`Payment verified successfully for user ${req.user.id}`);
-          res.json({ message: "/payment-success" });
+          logger.info(`Payment verified successfully for user ${req.user?.id}`);
+          res.json({ message: "/payment-success", data: order });
         } else {
-          logger.error(`Payment verification failed: ${response.message}`);
+          logger.error(
+            `Payment verification failed with status: ${response.data.code}`
+          );
+          await session.abortTransaction();
+          session.endSession();
           throw new AppError(
             `Payment verification failed: ${
-              response.message || "Unknown error"
+              response.data.code || "Unknown error"
             }`,
             400
           );
         }
       } else {
         logger.warn(`Payment cancelled by user`);
+        await session.abortTransaction();
+        session.endSession();
         throw new AppError("Payment was cancelled", 400);
       }
     } catch (error) {
-      await session.abortTransaction();
+      if (session.inTransaction()) {
+        await session.abortTransaction();
+      }
       session.endSession();
       logger.error("Payment verification error:", error);
       next(error);
     }
   };
 
-  private async createOrderFromPayment(
-    metadata: any,
-    response: PaymentResponse,
-    session: ClientSession
-  ): Promise<void> {
-    await Order.create(
-      [
-        {
-          user: metadata.userId,
-          totalAmount: parseFloat(metadata?.totalAmount || "0"),
-          orderItems: metadata?.products || [],
-          shippingAddress: metadata?.shippingAddress || "",
-          paymentMethod: metadata?.paymentMethod || "",
-          currency: this.CURRENCY,
-          paymentStatus: response.status === 100 || response.status === 101,
-          transactionId: response.RefId,
-        },
-      ],
-      { session }
-    );
-
-    await Cart.deleteMany({ user: metadata.userId }).session(session);
-  }
-
-  getUserOrders = async (req: Request, res: Response, next: NextFunction) => {
+  getUserOrders = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       req.query.user = req.user.id;
       return await this.getAll()(req, res, next);
@@ -419,7 +380,11 @@ class OrderController extends BaseController<IOrder> {
     }
   };
 
-  getOrder = async (req: Request, res: Response, next: NextFunction) => {
+  getOrder = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { id } = req.params;
       if (!id) {
@@ -449,7 +414,7 @@ class OrderController extends BaseController<IOrder> {
     req: Request,
     res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -528,10 +493,16 @@ class OrderController extends BaseController<IOrder> {
     const url = `${req.protocol}://${req.get("host")}/api/v1/orders/${
       order.id
     }`;
-    await new SMS(user as IUser, url).sendShipped(order);
+    await new SMS(user as IUser, url).sendShipped(
+      JSON.parse(JSON.stringify(order))
+    );
   }
 
-  cancelOrder = async (req: Request, res: Response, next: NextFunction) => {
+  cancelOrder = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -577,7 +548,7 @@ class OrderController extends BaseController<IOrder> {
     req: Request,
     res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     try {
       const { orderId, status, transactionId } = req.body;
 
@@ -600,7 +571,7 @@ class OrderController extends BaseController<IOrder> {
       // Send notification to user
       const user = await User.findById(order.user);
       if (user) {
-        await new SMS(user, "").sendShipped(order);
+        await new SMS(user, "").sendShipped(JSON.parse(JSON.stringify(order)));
       }
 
       res.status(200).json({ received: true });
