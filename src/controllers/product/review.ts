@@ -25,7 +25,7 @@ class ReviewsController extends BaseController<IReview> {
           new AppError("You need to add the product id, rating and review", 400)
         );
       }
-
+      // Todo: Add image to reviews
       const productExist = await Product.findById(product);
 
       if (!productExist) {
@@ -36,7 +36,7 @@ class ReviewsController extends BaseController<IReview> {
       const orderExist = await Order.findOne({
         user: req.user.id,
         "orderItems.product": product,
-        status: "Delivered",
+        status: "delivered",
       });
 
       if (!orderExist) {

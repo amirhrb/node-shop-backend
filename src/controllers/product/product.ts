@@ -7,17 +7,36 @@ import BaseController from "../helpers/base";
 import AppError from "../../utils/error";
 import sharp from "sharp";
 import uploadImage from "../../utils/cloudinary-controller";
+import { MulterError } from "multer";
 
 interface RequestWithFiles extends Request {
   files?: {
-    image?: Express.Multer.File[];
+    images?: Express.Multer.File[];
     ogImage?: Express.Multer.File[];
   };
 }
 
 class ProductController extends BaseController<IProduct> {
+  private uploader: Uploader;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private upload: any;
+  private readonly errorCode = {
+    LIMIT_PART_COUNT: "LIMIT_PART_COUNT",
+    LIMIT_FILE_SIZE: "LIMIT_FILE_SIZE",
+    LIMIT_FILE_COUNT: "LIMIT_FILE_COUNT",
+    LIMIT_FIELD_KEY: "LIMIT_FIELD_KEY",
+    LIMIT_FIELD_VALUE: "LIMIT_FIELD_VALUE",
+    LIMIT_FIELD_COUNT: "LIMIT_FIELD_COUNT",
+    LIMIT_UNEXPECTED_FILE: "LIMIT_UNEXPECTED_FILE",
+  };
+
   constructor() {
     super(Product);
+    this.uploader = new Uploader();
+    this.upload = this.uploader.upload.fields([
+      { name: "images", maxCount: 8 },
+      { name: "ogImage", maxCount: 1 },
+    ]);
   }
 
   createProduct = async (
@@ -30,7 +49,7 @@ class ProductController extends BaseController<IProduct> {
       delete req.body.ratingsAverage;
       delete req.body.isArchived;
 
-      return await this.createOne(["cloudinaryPublicId"])(req, res, next);
+      return await this.createOne()(req, res, next);
     } catch (error) {
       next(error);
     }
@@ -110,10 +129,38 @@ class ProductController extends BaseController<IProduct> {
     }
   };
 
-  uploadProductImages = new Uploader().upload.fields([
-    { name: "image", maxCount: 8 },
-    { name: "ogImage", maxCount: 1 },
-  ]);
+  uploadProductImages = (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): void => {
+    try {
+      this.upload(req, res, (err: MulterError | null) => {
+        if (err) {
+          switch (err.code) {
+            case this.errorCode.LIMIT_FILE_SIZE:
+              return next(new AppError("File size is too large", 400));
+            case this.errorCode.LIMIT_UNEXPECTED_FILE:
+              return next(new AppError("Invalid file type", 400));
+            case this.errorCode.LIMIT_FIELD_KEY:
+              return next(
+                new AppError(
+                  'Invalid field name. Use "photo" as the field name for file upload',
+                  400
+                )
+              );
+            default:
+              return next(
+                new AppError(err.message || "Error uploading file", 400)
+              );
+          }
+        }
+        next();
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 
   resizeProductImages = async (
     req: RequestWithFiles,
@@ -124,8 +171,8 @@ class ProductController extends BaseController<IProduct> {
       const id = req.body.publicId || uuidv4();
 
       // Handle main product images
-      if (req.files?.image) {
-        const imageFiles = req.files.image;
+      if (req.files?.images) {
+        const imageFiles = req.files.images;
 
         await Promise.all(
           imageFiles.map(async (file: Express.Multer.File, i: number) => {
@@ -139,7 +186,14 @@ class ProductController extends BaseController<IProduct> {
               .jpeg({ quality: 90 })
               .toBuffer();
 
-            this.assigneFileToReq(req, file, filename, "image", resizedBuffer);
+            this.assigneFileToReq(
+              req,
+              file,
+              filename,
+              "images",
+              resizedBuffer,
+              i
+            );
           })
         );
       }
@@ -176,7 +230,8 @@ class ProductController extends BaseController<IProduct> {
     file: Express.Multer.File,
     filename: string,
     reqFileName: string,
-    resizedBuffer?: Buffer
+    resizedBuffer?: Buffer,
+    count: number = 0
   ): void => {
     const modifiedFile = {
       ...file,
@@ -184,17 +239,20 @@ class ProductController extends BaseController<IProduct> {
       filename,
     };
 
-    (req.files as { [reqFileName]: Express.Multer.File[] })[reqFileName][0] =
-      modifiedFile;
+    (req.files as { [reqFileName]: Express.Multer.File[] })[reqFileName][
+      count
+    ] = modifiedFile;
   };
 
   // Cloudinary Upload
   handleProductImagesUpload = async (
     req: RequestWithFiles,
-    res: Response,
+    _res: Response,
     next: NextFunction
   ): Promise<void> => {
     if (!req.files) return next();
+    // delete at first to set the real one if req.body is poluted
+    delete req.body.cloudinaryPublicId;
 
     try {
       const newImages: string[] = [];
@@ -203,12 +261,12 @@ class ProductController extends BaseController<IProduct> {
       let newOgImage: string | undefined;
 
       // Handle main product images
-      if (req.files.image) {
+      if (req.files.images && req.files.images.length > 0) {
         await Promise.all(
-          req.files.image.map(async (image: Express.Multer.File) => {
+          req.files.images.map(async (image: Express.Multer.File) => {
             const { secure_url, public_id } = (await uploadImage(
               image,
-              "e-buy/products"
+              "e-commerce/products"
             )) as UploadApiResponse;
 
             newImages.push(secure_url);
@@ -218,11 +276,11 @@ class ProductController extends BaseController<IProduct> {
       }
 
       // Handle ogImage
-      if (req.files.ogImage) {
+      if (req.files.ogImage && req.files.ogImage.length > 0) {
         const ogImageFile = req.files.ogImage[0];
         const { secure_url } = (await uploadImage(
           ogImageFile,
-          "e-buy/products/og"
+          "e-commerce/product-ogs"
         )) as UploadApiResponse;
 
         newOgImage = secure_url;
@@ -244,16 +302,17 @@ class ProductController extends BaseController<IProduct> {
           await cloudinary.uploader.destroy(oldOgImageMatch[1]);
         }
       }
-
-      await Promise.all(
-        imagesToDelete.map(async (imgUrl: string) => {
-          const publicIdMatch = imgUrl.match(/upload\/(?:v\d+\/)?([^\\.]+)/);
-          const publicIdToDelete = publicIdMatch ? publicIdMatch[1] : null;
-          if (publicIdToDelete) {
-            await cloudinary.uploader.destroy(publicIdToDelete);
-          }
-        })
-      );
+      if (imagesToDelete.length > 0) {
+        await Promise.all(
+          imagesToDelete.map(async (imgUrl: string) => {
+            const publicIdMatch = imgUrl.match(/upload\/(?:v\d+\/)?([^\\.]+)/);
+            const publicIdToDelete = publicIdMatch ? publicIdMatch[1] : null;
+            if (publicIdToDelete) {
+              await cloudinary.uploader.destroy(publicIdToDelete);
+            }
+          })
+        );
+      }
 
       // Update req.body with new images and publicIds
       if (newImages.length > 0) {
@@ -265,10 +324,13 @@ class ProductController extends BaseController<IProduct> {
 
       const regex =
         /[0-9A-Za-z]{8}-[0-9A-Za-z]{4}-4[0-9A-Za-z]{3}-[89ABab][0-9A-Za-z]{3}-[0-9A-Za-z]{12}/;
-      // Use regex.exec to extract the UUID and assign it to the public id in DB
-      req.body.cloudinaryPublicId = (
-        regex.exec(newPublicIds[0]) as unknown as string
-      )[0];
+
+      if (newPublicIds.length > 0) {
+        // Use regex.exec to extract the UUID and assign it to the public id in DB
+        req.body.cloudinaryPublicId = (
+          regex.exec(newPublicIds[0]) as unknown as string
+        )[0];
+      }
 
       next();
     } catch (error) {
@@ -280,7 +342,7 @@ class ProductController extends BaseController<IProduct> {
   // so we can use it on the image name
   checkProduct = async (
     req: Request,
-    res: Response,
+    _res: Response,
     next: NextFunction
   ): Promise<void> => {
     try {

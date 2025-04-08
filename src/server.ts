@@ -53,8 +53,8 @@ const startServer = async (): Promise<void> => {
     // Process handlers for uncaught exceptions and unhandled rejections
     process.on("uncaughtException", (err) => {
       logger.error("UNCAUGHT EXCEPTION! 💥 Shutting down...");
-      logger.error(`${err.name}: ${err.message}`);
-      logger.error(err.stack);
+      logger.error(`Error ${err.name}: ${err.message}`);
+
       if (env.NODE_ENV === "production") {
         // For uncaught exceptions, exit immediately as the app state is undefined
         process.exit(1);
@@ -64,8 +64,8 @@ const startServer = async (): Promise<void> => {
     // Handle unhandled promise rejections
     process.on("unhandledRejection", (err: Error) => {
       logger.error("UNHANDLED REJECTION! 💥 Shutting down...");
-      logger.error(`${err.name}: ${err.message}`);
-      logger.error(err.stack);
+      logger.error(`Error ${err.name}: ${err.message}`);
+
       if (env.NODE_ENV === "production") {
         // For unhandled rejections, try to close the server gracefully first
         server.close(() => {

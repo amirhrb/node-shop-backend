@@ -55,6 +55,8 @@ class OrderController extends BaseController<IOrder> {
     this.BaseUrl = this.initializePaymentBaseURL();
   }
 
+  getAllOrders = this.getAll(undefined, undefined, true);
+
   private async retryOperation<T>(
     operation: () => Promise<T>,
     retries: number = this.MAX_RETRIES
@@ -147,10 +149,10 @@ class OrderController extends BaseController<IOrder> {
     session.startTransaction();
 
     try {
-      const { addressId, paymentMethod } = req.body;
+      const { address, paymentMethod } = req.body;
 
-      if (!addressId) {
-        throw new AppError("addressId is required", 400);
+      if (!address) {
+        throw new AppError("address id is required", 400);
       }
 
       // Remove status and paymentStatus from req.body if they are present
@@ -174,7 +176,7 @@ class OrderController extends BaseController<IOrder> {
           res,
           session,
           totalAmount,
-          addressId,
+          address,
           products
         );
       } else {
@@ -183,7 +185,7 @@ class OrderController extends BaseController<IOrder> {
           res,
           session,
           totalAmount,
-          addressId,
+          address,
           products
         );
       }
@@ -207,7 +209,7 @@ class OrderController extends BaseController<IOrder> {
 
       const CallbackURL = `${req.protocol}://${req.get(
         "host"
-      )}/api/v1/orders/verify-payment?Amount=${totalAmount}`;
+      )}/api/v1/users/orders/verify-payment?Amount=${totalAmount}`;
 
       const response = await this.retryOperation(() =>
         this.zarinpal.payments.create({
@@ -218,7 +220,7 @@ class OrderController extends BaseController<IOrder> {
         })
       );
 
-      if (response.data.code === 100) {
+      if (response.data.code === 100 || response.data.code === 101) {
         logger.info(`Payment initiated for user ${req.user.id}`);
         const newOrder: Partial<IOrder> = {
           user: req.user.id,
@@ -259,6 +261,85 @@ class OrderController extends BaseController<IOrder> {
       throw error;
     }
   }
+
+  payForOrder = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        throw new AppError("order id not provided", 404);
+      }
+
+      const order = await Order.findById(id);
+
+      if (!order) {
+        throw new AppError("Order not found", 404);
+      }
+      if (order.status !== "pay-on-delivery") {
+        throw new AppError("Order not is not unpaid", 404);
+      }
+
+      const totalAmount = order?.totalAmount;
+
+      this.validatePaymentAmount(totalAmount);
+
+      const CallbackURL = `${req.protocol}://${req.get(
+        "host"
+      )}/api/v1/users/orders/verify-payment?Amount=${totalAmount}`;
+
+      const response = await this.retryOperation(() =>
+        this.zarinpal.payments.create({
+          amount: totalAmount,
+          callback_url: CallbackURL,
+          description: "Payment for order",
+          referrer_id: req.user.id,
+        })
+      );
+
+      if (response.data.code === 100 || response.data.code === 101) {
+        logger.info(`Payment initiated for user ${req.user.id}`);
+
+        order.status = "not-paid";
+        order.paymentMethod = "online";
+        order.transactionId = response.data.authority;
+        order.currency = this.CURRENCY;
+
+        await order.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(201).json({
+          status: "success",
+          data: {
+            url: this.BaseUrl + response.data.authority,
+            authority: response.data.authority,
+          },
+          amount: totalAmount,
+        });
+      } else {
+        logger.error(
+          `Payment initiation failed for user ${req.user.id} with status: ${response.data.code}`
+        );
+        throw new AppError(
+          `Payment initiation failed: ${response.errors || "Unknown error"}`,
+          400
+        );
+      }
+    } catch (error) {
+      logger.error("Online payment error:", error);
+      await session.abortTransaction();
+      session.endSession();
+      next(error);
+    }
+  };
 
   private async handleCashOnDelivery(
     req: Request,
@@ -313,6 +394,13 @@ class OrderController extends BaseController<IOrder> {
           );
         }
 
+        const order = await Order.findOne({
+          transactionId: Authority,
+        }).session(session);
+
+        if (!order) {
+          throw new AppError("Order not found", 404);
+        }
         const response = await this.retryOperation(() =>
           this.zarinpal.verifications.verify({
             amount: parseInt(Amount as string),
@@ -321,27 +409,41 @@ class OrderController extends BaseController<IOrder> {
         );
 
         if (response.data.code === 100 || response.data.code === 101) {
-          const order = await Order.findOne({
-            transactionId: Authority,
-          }).session(session);
-
-          if (!order) {
-            throw new AppError("Order not found", 404);
-          }
-
           order.paymentStatus = true;
           order.status = "Pending";
-          await order.save({ session });
 
+          const user = await User.findById(order.user).session(session);
+          const url = `${req.protocol}://${req.get(
+            "host"
+          )}/api/v1/users/orders/${order.id}`;
+          await new SMS(user as IUser, url).sendSuccessPayment(
+            JSON.parse(JSON.stringify(order))
+          );
+
+          order.paymentStatusSent = true;
+
+          await order.save({ session });
           await session.commitTransaction();
           session.endSession();
 
           logger.info(`Payment verified successfully for user ${req.user?.id}`);
-          res.json({ message: "/payment-success", data: order });
+          res.json({
+            message: "/payment-success",
+            transactionId: order.transactionId,
+            id: order.id,
+          });
         } else {
           logger.error(
             `Payment verification failed with status: ${response.data.code}`
           );
+
+          const user = await User.findById(order.user).session(session);
+          await new SMS(user as IUser, "").sendfailedPayment();
+
+          order.paymentStatusSent = true;
+
+          await order.save({ session });
+
           await session.abortTransaction();
           session.endSession();
           throw new AppError(
@@ -476,13 +578,13 @@ class OrderController extends BaseController<IOrder> {
     session: ClientSession
   ): Promise<void> {
     if (
-      newStatus === "Delivered" &&
+      newStatus.toLowerCase() === "Delivered".toLowerCase() &&
       order.paymentMethod === this.PAYMENT_METHODS.CASH_ON_DELIVERY
     ) {
       order.paymentStatus = true;
     }
 
-    if (newStatus === "Shipped") {
+    if (newStatus.toLowerCase() === "Shipped".toLowerCase()) {
       order.shippedAt = new Date(Date.now());
     }
 
@@ -490,7 +592,7 @@ class OrderController extends BaseController<IOrder> {
     await order.save({ session });
 
     const user = await User.findById(order.user).session(session);
-    const url = `${req.protocol}://${req.get("host")}/api/v1/orders/${
+    const url = `${req.protocol}://${req.get("host")}/api/v1/users/orders/${
       order.id
     }`;
     await new SMS(user as IUser, url).sendShipped(

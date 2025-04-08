@@ -15,6 +15,7 @@ class CartController extends BaseController<ICart> {
     next: NextFunction
   ): Promise<void> => {
     try {
+      console.log("first");
       const { product, quantity } = req.body;
       const userId = req.user.id;
 
@@ -39,12 +40,15 @@ class CartController extends BaseController<ICart> {
       if (quantity > productDoc.stockQuantity) {
         return next(new AppError("Not enough stock", 400));
       }
-
-      const cartItem = await Cart.findOne({ product, user: userId });
+      console.log("here before finding cart");
+      const cartItem = await Cart.findOne({
+        product: productDoc.id,
+        user: userId,
+      });
 
       if (cartItem) {
         // update the quantity if the item is already in the cart
-        cartItem.quantity += parseInt(quantity);
+        cartItem.quantity = parseInt(quantity);
 
         // check the updated quantity with the product stock
         if (cartItem.quantity > productDoc.stockQuantity) {
@@ -54,6 +58,7 @@ class CartController extends BaseController<ICart> {
         // Update the cart item using the updateOne method from the base class
         req.params.id = (cartItem._id as string).toString();
         req.body.quantity = cartItem.quantity;
+        console.log("here before model update");
         return await this.updateOne()(req, res, next);
       } else {
         // Use the createOne method from the base class to add a new item
@@ -64,56 +69,7 @@ class CartController extends BaseController<ICart> {
       next(error);
     }
   };
-  updateCartItem = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const { quantity, product, user } = req.body;
 
-      if (!quantity || parseInt(quantity) < 0) {
-        return next(new AppError("Positive quantity number required", 400));
-      }
-
-      // Prevent changing ownership or product
-      if (product || user) {
-        return next(
-          new AppError("Cannot change product or user of cart item", 400)
-        );
-      }
-
-      if (parseInt(quantity) === 0) {
-        return await this.deleteOne()(req, res, next);
-      }
-
-      return await this.updateOne()(req, res, next);
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  checkCartOwner = async (
-    req: Request,
-    _res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const cart = await Cart.findById(req.params.id);
-
-      if (!cart) {
-        return next(new AppError("Cart not found", 404));
-      }
-
-      if (cart.user.toString() === req.user.id.toString()) {
-        next();
-      } else {
-        next(new AppError("You don't have cart with this id", 403));
-      }
-    } catch (error) {
-      next(error);
-    }
-  };
   deleteCartItem = async (
     req: Request,
     res: Response,

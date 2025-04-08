@@ -1,0 +1,13 @@
+| Hello #{firstName},
+| 
+| Your order has been successfuly paid! You can track your order here:
+| #{url}
+| 
+| Order Details:
+each item in orderItems
+  | - #{item.product.name} (Quantity: #{item.quantity})
+| 
+| Thank you for shopping with E-commerce!
+| 
+| Best regards,
+| E-commerce Team 

@@ -1,9 +1,9 @@
 import { RequestHandler, Router } from "express";
-import Authentication from "../controllers/helpers/authentication";
-import Order from "../controllers/order";
-import { ValidatedEnv } from "../config/env.config";
-import { PermissionAction, ResourceType } from "../models/user/permission";
-import { authRateLimiter } from "../middleware/rateLimiter";
+import Authentication from "../../controllers/helpers/authentication";
+import Order from "../../controllers/order";
+import { ValidatedEnv } from "../../config/env.config";
+import { PermissionAction, ResourceType } from "../../models/user/permission";
+import { authRateLimiter } from "../../middleware/rateLimiter";
 
 declare module "express" {
   interface Request {
@@ -36,6 +36,14 @@ router.route("/checkout").post(
   order.createOrder as RequestHandler
 );
 
+router.route("/checkout-not-paid/:id").patch(
+  auth.hasAnyPermission([
+    { action: PermissionAction.CREATE, resource: ResourceType.ORDER },
+    { action: PermissionAction.MANAGE, resource: ResourceType.ORDER },
+  ]) as RequestHandler,
+  order.payForOrder as RequestHandler
+);
+
 router.get(
   "/",
   auth.hasAnyPermission([
@@ -43,6 +51,15 @@ router.get(
     { action: PermissionAction.MANAGE, resource: ResourceType.ORDER },
   ]) as RequestHandler,
   order.getUserOrders as RequestHandler
+);
+
+// admin route
+router.get(
+  "/admin",
+  auth.hasAnyPermission([
+    { action: PermissionAction.MANAGE, resource: ResourceType.ORDER },
+  ]) as RequestHandler,
+  order.getAllOrders as RequestHandler
 );
 
 // Order specific routes

@@ -79,32 +79,41 @@ class SMS {
   }
 
   sendWelcome = async (): Promise<void> => {
-    await this.send("welcome", "Welcome to E-Buy family");
+    await this.send("welcome", "Welcome to E-commerce family");
   };
 
   sendVerification = async (): Promise<void> => {
     if (this.url.length <= 6) {
       // If url is actually a verification code
-      const text = `Your E-Buy verification code is: ${this.url}\nValid for 15 minutes.`;
+      const text = `Your E-commerce verification code is: ${this.url}\nValid for 15 minutes.`;
       const smsOptions: SMSOptions = {
         to: this.to,
         text,
       };
       await this.sendSMS(smsOptions);
     } else {
-      await this.send("verify", "E-Buy Phone Verification");
+      await this.send("verify", "E-commerce Phone Verification");
     }
   };
 
   sendResetPassword = async (): Promise<void> => {
     await this.send(
       "passwordReset",
-      "E-Buy Account Reset Password (valid for 10 min)"
+      "E-commerce Account Reset Password (valid for 10 min)"
     );
   };
 
   sendShipped = async (order: Record<string, unknown>): Promise<void> => {
     await this.send("orderShipped", "Order Status Update", order);
+  };
+
+  sendSuccessPayment = async (
+    order: Record<string, unknown>
+  ): Promise<void> => {
+    await this.send("orderPaidSuccess", "Order Payment successful", order);
+  };
+  sendfailedPayment = async (): Promise<void> => {
+    await this.send("orderPaidFailure", "Order Payment failed");
   };
 }
 

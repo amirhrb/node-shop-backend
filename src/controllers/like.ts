@@ -121,11 +121,12 @@ class LikeController extends BaseController<ILike> {
       const likes = await Like.find(query)
         .populate("user", "name email")
         .sort("-createdAt");
+
       if (!likes) {
         res.json({ message: "No likes found" });
       }
 
-      res.json(likes);
+      res.status(200).json({ status: "success", data: likes });
     } catch (error) {
       next(error);
     }

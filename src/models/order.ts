@@ -12,6 +12,7 @@ export interface IOrder extends Document {
   paymentMethod?: string;
   totalAmount: number;
   paymentStatus?: boolean;
+  paymentStatusSent?: boolean;
   status?: string;
   currency?: string;
   shippedAt: Date;
@@ -51,7 +52,7 @@ const orderSchema = new mongoose.Schema(
         message: "Invalid Payment Method",
       },
       required: [true, "Payment Method is required"],
-      default: "Online Payment",
+      default: "online",
     },
     totalAmount: {
       type: Number,
@@ -64,15 +65,15 @@ const orderSchema = new mongoose.Schema(
         values: [
           "not-paid",
           "pay-on-delivery",
-          "Pending",
-          "Shipped",
-          "Delivered",
-          "Cancelled",
+          "pending",
+          "shipped",
+          "delivered",
+          "cancelled",
         ],
         message: "Invalid Status",
       },
       required: [true, "Status is required"],
-      default: "Pending",
+      default: "pending",
     },
     currency: {
       type: String,
@@ -87,6 +88,7 @@ const orderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    paymentStatusSent: { type: Boolean, default: false },
     shippedAt: Date,
     transactionId: {
       type: String,

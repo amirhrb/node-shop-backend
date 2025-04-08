@@ -15,7 +15,6 @@ router
   .post(
     auth.hasAnyPermission([
       { action: PermissionAction.CREATE, resource: ResourceType.CART },
-      { action: PermissionAction.MANAGE, resource: ResourceType.CART },
     ]) as RequestHandler,
     cart.addOrUpdateCartItem as RequestHandler
   )
@@ -33,11 +32,9 @@ router
     auth.protect as RequestHandler,
     auth.hasAnyPermission([
       { action: PermissionAction.UPDATE, resource: ResourceType.CART },
-      { action: PermissionAction.MANAGE, resource: ResourceType.CART },
-    ]) as RequestHandler,
-    cart.checkCartOwner as RequestHandler
+    ]) as RequestHandler
   )
-  .patch(cart.updateCartItem as RequestHandler)
+  .patch(cart.addOrUpdateCartItem as RequestHandler)
   .delete(cart.deleteCartItem as RequestHandler);
 
 export default router;

@@ -4,8 +4,8 @@ import { Readable } from "stream";
 import { UploadApiResponse } from "cloudinary";
 
 const uploadImage = async (
-  file: Express.Request["file"],
-  folder: string,
+  file: Express.Request["file"], // image
+  folder: string //  e-commerce/products
 ): Promise<UploadApiResponse | undefined> => {
   if (!file) {
     throw new Error("No file provided");
@@ -28,7 +28,7 @@ const uploadImage = async (
         } else {
           resolve(result);
         }
-      },
+      }
     );
 
     readableStream.pipe(uploadStream);

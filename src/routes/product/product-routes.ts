@@ -23,7 +23,7 @@ router
         resource: ResourceType.PRODUCT,
       },
     ]) as RequestHandler,
-    product.uploadProductImages,
+    product.uploadProductImages as RequestHandler,
     product.checkProduct as RequestHandler,
     product.resizeProductImages as RequestHandler,
     product.handleProductImagesUpload as RequestHandler,
@@ -44,7 +44,7 @@ router
     ]) as RequestHandler
   )
   .patch(
-    product.uploadProductImages,
+    product.uploadProductImages as RequestHandler,
     product.checkProduct as RequestHandler,
     product.resizeProductImages as RequestHandler,
     product.handleProductImagesUpload as RequestHandler,
