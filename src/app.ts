@@ -26,13 +26,6 @@ import {
 import sanitizeInput from "./utils/snitize-input";
 import logger from "./utils/logger";
 import cloudinaryConfig from "./utils/cloudinary-config";
-import { ValidatedEnv } from "./config/env.config";
-
-declare module "express" {
-  interface Request {
-    env: ValidatedEnv;
-  }
-}
 
 const app: express.Application = express();
 
@@ -91,7 +84,10 @@ cloudinaryConfig();
 
 // Add validated env to request object
 const envMiddleware = ((req: Request, _res: Response, next: NextFunction) => {
-  req.env = req.app.get("env");
+  interface RequestWithEnv extends Request {
+    env: string;
+  }
+  (req as RequestWithEnv).env = req.app.get("env");
   next();
 }) as RequestHandler;
 

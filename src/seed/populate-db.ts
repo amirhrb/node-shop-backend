@@ -7,7 +7,6 @@ import Permission from "../models/user/permission";
 import { products } from "./data/product.json";
 import { users } from "./data/user.json";
 import logger from "../utils/logger";
-import { validateEnv } from "../config/env.config";
 import Profile from "../models/user/profile";
 import RefreshToken from "../models/user/tokens";
 import Like from "../models/Like";
@@ -181,11 +180,8 @@ const populateDevData = async (
 
 const populateDB = async (): Promise<never> => {
   try {
-    // Validate environment variables
-    const env = validateEnv();
-
     // Connect to MongoDB
-    await mongoose.connect(env.MONGO_URI);
+    console.log(process.env.MONGO_URI, process.env.NODE_ENV);
     logger.info("Connected to MongoDB");
 
     // Start a session

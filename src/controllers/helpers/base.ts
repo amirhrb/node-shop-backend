@@ -2,14 +2,9 @@ import { NextFunction, Request, Response } from "express";
 import mongoose, { Document, Model, PopulateOptions } from "mongoose";
 import AppError from "../../utils/error";
 import { APIFeatures } from "../../utils/api-features";
-import { ValidatedEnv } from "../../config/env.config";
-
-export interface RequestWithEnv extends Request {
-  env: ValidatedEnv;
-}
 
 export type CustomRequestHandler = (
-  req: RequestWithEnv,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => Promise<void> | void;
@@ -23,7 +18,7 @@ class BaseController<T extends Document> {
 
   deleteOne = (session?: mongoose.ClientSession) => {
     return async (
-      req: RequestWithEnv,
+      req: Request,
       res: Response,
       next: NextFunction
     ): Promise<void> => {
@@ -49,7 +44,7 @@ class BaseController<T extends Document> {
 
   updateOne = (session?: mongoose.ClientSession) => {
     return async (
-      req: RequestWithEnv,
+      req: Request,
       res: Response,
       next: NextFunction
     ): Promise<void> => {
@@ -81,7 +76,7 @@ class BaseController<T extends Document> {
     session?: mongoose.ClientSession
   ) => {
     return async (
-      req: RequestWithEnv,
+      req: Request,
       res: Response,
       next: NextFunction
     ): Promise<void> => {
@@ -109,7 +104,7 @@ class BaseController<T extends Document> {
     session?: mongoose.ClientSession
   ) => {
     return async (
-      req: RequestWithEnv,
+      req: Request,
       res: Response,
       next: NextFunction
     ): Promise<void> => {
@@ -148,7 +143,7 @@ class BaseController<T extends Document> {
     enableSearch: boolean = false
   ) => {
     return async (
-      req: RequestWithEnv,
+      req: Request,
       res: Response,
       next: NextFunction
     ): Promise<void> => {

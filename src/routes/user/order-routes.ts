@@ -1,15 +1,8 @@
 import { RequestHandler, Router } from "express";
 import Authentication from "../../controllers/helpers/authentication";
 import Order from "../../controllers/order";
-import { ValidatedEnv } from "../../config/env.config";
 import { PermissionAction, ResourceType } from "../../models/user/permission";
 import { authRateLimiter } from "../../middleware/rateLimiter";
-
-declare module "express" {
-  interface Request {
-    env: ValidatedEnv;
-  }
-}
 
 const router = Router({
   mergeParams: true,
