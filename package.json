@@ -19,6 +19,7 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "build": "rimraf dist && tsc",
+    "vercel-build": "npm run build",
     "ts.check": "tsc --project tsconfig.json",
     "add-build": "git add dist"
   },
