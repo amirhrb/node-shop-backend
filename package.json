@@ -10,7 +10,7 @@
     "npm": ">=9.0.0"
   },
   "scripts": {
-    "start": "SET NODE_ENV=production& node dist/server.js",
+    "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --watch src --files --rs src/server.ts",
     "seed": "ts-node src/seed/index.ts",
     "test": "jest",
