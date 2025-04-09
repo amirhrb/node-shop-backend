@@ -11,7 +11,6 @@
   },
   "scripts": {
     "start": "SET NODE_ENV=production& node dist/server.js",
-    "build": "rimraf dist && tsc",
     "dev": "ts-node-dev --respawn --watch src --files --rs src/server.ts",
     "seed": "ts-node src/seed/index.ts",
     "test": "jest",
@@ -19,8 +18,15 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "prepare": "npm run build"
+    "build": "rimraf dist && tsc",
+    "ts.check": "tsc --project tsconfig.json",
+    "add-build": "git add dist"
   },
+  "pre-commit": [
+    "ts.check",
+    "build",
+    "add-build"
+  ],
   "keywords": [
     "ecommerce",
     "shop",
@@ -56,7 +62,7 @@
     "hpp": "^0.2.3",
     "html-to-text": "^9.0.5",
     "jsonwebtoken": "^9.0.2",
-    "melipayamak": "^1.0.5",
+    "melipayamak": "^1.0.0",
     "mongoose": "^8.11.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
