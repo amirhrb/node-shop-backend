@@ -340,6 +340,84 @@
             "description": "Add or remove user permissions (Permission: USER:MANAGE)"
           },
           "response": []
+        },
+        {
+          "name": "Get User Permissions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/:id/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", ":id", "permissions"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "user_id_here"
+                }
+              ]
+            },
+            "description": "Get user permissions by ID (Permission: USER:READ or USER:MANAGE)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/:id/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", ":id", "roles"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "user_id_here"
+                }
+              ]
+            },
+            "description": "Get user roles by ID (Permission: USER:READ or USER:MANAGE)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Role By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/role/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "role", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "role_id_here"
+                }
+              ]
+            },
+            "description": "Get role details by ID (Permission: USER:READ or USER:MANAGE)"
+          },
+          "response": []
         }
       ],
       "description": "Endpoints require USER:READ, USER:UPDATE, or USER:DELETE permissions"

@@ -66,6 +66,40 @@ router.get(
   user.getAllUsers as RequestHandler
 );
 
+// role-permission related routes
+router.get(
+  "/:id/permissions",
+  auth.hasAnyPermission([
+    { action: PermissionAction.READ, resource: ResourceType.USER },
+    { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+  ]) as RequestHandler,
+  user.getUserPermissions as RequestHandler
+);
+router.get(
+  "/:id/roles",
+  auth.hasAnyPermission([
+    { action: PermissionAction.READ, resource: ResourceType.USER },
+    { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+  ]) as RequestHandler,
+  user.getUserRoles as RequestHandler
+);
+router.get(
+  "/role/:id",
+  auth.hasAnyPermission([
+    { action: PermissionAction.READ, resource: ResourceType.USER },
+    { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+  ]) as RequestHandler,
+  user.getRoleById as RequestHandler
+);
+router.get(
+  "/permission/:id",
+  auth.hasAnyPermission([
+    { action: PermissionAction.READ, resource: ResourceType.USER },
+    { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+  ]) as RequestHandler,
+  user.getPermissionById as RequestHandler
+);
+
 /**
  * @route   POST /api/v1/users/promote-to-admin
  * @desc    Promote a user to admin or superAdmin role

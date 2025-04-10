@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import User, { IUser } from "../../models/user/user";
 import BaseController from "../helpers/base";
 import AppError from "../../utils/error";
+import Permission from "../../models/user/permission";
+import Role from "../../models/user/role";
 
 class UserController extends BaseController<IUser> {
   constructor() {
@@ -91,6 +93,107 @@ class UserController extends BaseController<IUser> {
     }
   };
   deleteUser = this.deleteOne();
+
+  getUserPermissions = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return next(new AppError("user id is required", 404));
+      }
+      const user = await User.findById(id).populate({
+        path: "permissions",
+        select: "id name description action resource conditions",
+      });
+      if (!user) {
+        return next(new AppError("User not found", 404));
+      }
+      res.status(200).json({
+        status: "success",
+        data: user.permissions,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+  getUserRoles = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return next(new AppError("user id is required", 404));
+      }
+      const user = await User.findById(id).populate({
+        path: "roles",
+        select: "id name description",
+      });
+      if (!user) {
+        return next(new AppError("User not found", 404));
+      }
+      res.status(200).json({
+        status: "success",
+        data: user.roles,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+  getPermissionById = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return next(new AppError("permission id is required", 404));
+      }
+      const permission = await Permission.findById(id).populate({
+        path: "roles",
+        select: "id name description",
+      });
+      if (!permission) {
+        return next(new AppError("permission not found", 404));
+      }
+      res.status(200).json({
+        status: "success",
+        data: permission,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+  getRoleById = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return next(new AppError("role id is required", 404));
+      }
+      const role = await Role.findById(id).populate({
+        path: "permissions",
+        select: "id name description action resource condition",
+      });
+      if (!role) {
+        return next(new AppError("role not found", 404));
+      }
+      res.status(200).json({
+        status: "success",
+        data: role,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default UserController;
