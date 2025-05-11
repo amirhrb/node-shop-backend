@@ -1,0 +1,56 @@
+{
+  "orders": [
+    {
+      "orderItems": [
+        {
+          "product": "PRODUCT_ID_1",
+          "quantity": 2
+        },
+        {
+          "product": "PRODUCT_ID_2",
+          "quantity": 1
+        }
+      ],
+      "shippingAddress": "ADDRESS_ID_1",
+      "paymentMethod": "online",
+      "totalAmount": 15000,
+      "status": "pending",
+      "currency": "IRR",
+      "paymentStatus": false
+    },
+    {
+      "orderItems": [
+        {
+          "product": "PRODUCT_ID_3",
+          "quantity": 3
+        }
+      ],
+      "shippingAddress": "ADDRESS_ID_1",
+      "paymentMethod": "cash_on_delivery",
+      "totalAmount": 25000,
+      "status": "pay-on-delivery",
+      "currency": "IRR",
+      "paymentStatus": false
+    },
+    {
+      "orderItems": [
+        {
+          "product": "PRODUCT_ID_1",
+          "quantity": 1
+        },
+        {
+          "product": "PRODUCT_ID_4",
+          "quantity": 2
+        }
+      ],
+      "shippingAddress": "ADDRESS_ID_2",
+      "paymentMethod": "online",
+      "totalAmount": 35000,
+      "status": "delivered",
+      "currency": "IRR",
+      "paymentStatus": true,
+      "shippedAt": "2023-05-15T10:00:00.000Z",
+      "transactionId": "TRANS123456"
+    }
+  ]
+}

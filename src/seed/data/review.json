@@ -1,0 +1,34 @@
+{
+  "reviews": [
+    {
+      "rating": 5,
+      "review": "Excellent product! Exceeded my expectations in every way.",
+      "isVerified": true,
+      "isPublished": true
+    },
+    {
+      "rating": 4,
+      "review": "Good quality product. Fast shipping. Would recommend.",
+      "isVerified": true,
+      "isPublished": true
+    },
+    {
+      "rating": 3,
+      "review": "Average product. Does the job but nothing special.",
+      "isVerified": true,
+      "isPublished": true
+    },
+    {
+      "rating": 5,
+      "review": "Amazing value for money. Will definitely buy again!",
+      "isVerified": true,
+      "isPublished": true
+    },
+    {
+      "rating": 2,
+      "review": "Disappointed with the quality. Expected better for the price.",
+      "isVerified": false,
+      "isPublished": false
+    }
+  ]
+}

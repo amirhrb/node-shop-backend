@@ -25,7 +25,7 @@ export class APIFeatures<T> {
     if (enableSearch && queryObj.search) {
       this.query
         .find(
-          { $text: { $search: queryObj.search as string } },
+          { $text: { $search: queryObj.search as string, $caseSensitive: false } },
           { score: { $meta: "textScore" } } // Including text score in the result
         )
         .sort({ score: { $meta: "textScore" } }); // Sorting by text score

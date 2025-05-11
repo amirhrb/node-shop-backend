@@ -7,20 +7,9 @@ import logger from "./utils/logger";
 
 // 1. Load .env file (base settings)
 dotenv.config();
-console.log("Loaded .env file");
+logger.info("Loaded .env file");
 
-// Load environment variables in order of priority
-const nodeEnv = process.env.NODE_ENV || "development";
-
-// 2. Load environment specific file (.env.development, .env.test, etc)
-const envFile = `.env.${nodeEnv}`;
-dotenv.config({ path: envFile });
-console.log(`Loaded environment specific file: ${envFile}`);
-
-// 3. Load local override file (.env.development.local, .env.test.local, etc)
-const localEnvFile = `${envFile}.local`;
-dotenv.config({ path: localEnvFile });
-console.log(`Loaded local override file: ${localEnvFile} (if exists)`);
+logger.info(`Environment: ${process.env.NODE_ENV}`);
 
 let server: Server<typeof IncomingMessage, typeof ServerResponse>;
 

@@ -1,5 +1,8 @@
 import populateDB from "./populate-db";
 import logger from "../utils/logger";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const runSeed = async (): Promise<void> => {
   try {

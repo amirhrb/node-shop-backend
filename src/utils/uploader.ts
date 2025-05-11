@@ -4,20 +4,8 @@ import AppError from "./error";
 
 class Uploader {
   public upload: Multer;
-
-  constructor() {
-    this.upload = multer({
-      storage: this.multerStorage,
-      limits: {
-        fileSize: 1024 * 1024 * 5, // 5MB
-      },
-      fileFilter: this.multerFilter,
-    });
-  }
-
-  multerStorage = multer.memoryStorage();
-
-  multerFilter = (
+  private readonly multerStorage: multer.StorageEngine;
+  private multerFilter = (
     _req: Request,
     file: Express.Multer.File,
     cb: FileFilterCallback
@@ -31,6 +19,23 @@ class Uploader {
       );
     }
   };
+
+  constructor() {
+    try {
+      this.multerStorage = multer.memoryStorage();
+      this.upload = multer({
+        storage: this.multerStorage,
+        limits: {
+          fileSize: 1024 * 1024 * 5, // 5MB
+        },
+        fileFilter: this.multerFilter,
+      });
+      console.log('Multer initialized successfully');
+    } catch (error) {
+      console.error('Multer initialization error:', error);
+      throw new Error(`Failed to initialize multer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }
 
 export default Uploader;

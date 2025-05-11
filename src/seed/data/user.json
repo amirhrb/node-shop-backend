@@ -1,8 +1,8 @@
 {
   "users": [
     {
-      "firstName": "John",
-      "lastName": "Doe",
+      "firstname": "John",
+      "lastname": "Doe",
       "username": "johnn3",
       "email": "john@example.com",
       "phone": "09123456789",
@@ -11,8 +11,8 @@
       "updatedAt": "2024-01-01T00:00:00.000Z"
     },
     {
-      "firstName": "ahmad",
-      "lastName": "meow",
+      "firstname": "ahmad",
+      "lastname": "meow",
       "username": "ahmadweef",
       "email": "ahmad@example.com",
       "phone": "09198765432",
@@ -21,8 +21,8 @@
       "updatedAt": "2024-01-01T00:00:00.000Z"
     },
     {
-      "firstName": "Sarah",
-      "lastName": "Wilson",
+      "firstname": "Sarah",
+      "lastname": "Wilson",
       "username": "wwefw",
       "email": "sarah@example.com",
       "phone": "09187654321",
@@ -31,8 +31,8 @@
       "updatedAt": "2024-01-02T00:00:00.000Z"
     },
     {
-      "firstName": "Store",
-      "lastName": "Manager",
+      "firstname": "Store",
+      "lastname": "Manager",
       "username": "ssss",
       "email": "manager@example.com",
       "phone": "09176543210",

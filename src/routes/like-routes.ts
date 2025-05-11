@@ -2,7 +2,7 @@ import { RequestHandler, Router } from "express";
 import Like from "../controllers/like";
 import Authentication from "../controllers/helpers/authentication";
 import { PermissionAction, ResourceType } from "../models/user/permission";
-import { authRateLimiter } from "../middleware/rateLimiter";
+import { defaultRateLimiter } from "../middleware/rateLimiter";
 
 const router = Router({
   mergeParams: true,
@@ -17,7 +17,7 @@ router.use(auth.protect as RequestHandler);
 router
   .route("/")
   .post(
-    authRateLimiter,
+    defaultRateLimiter,
     auth.hasAnyPermission([
       { action: PermissionAction.CREATE, resource: ResourceType.LIKE },
       { action: PermissionAction.MANAGE, resource: ResourceType.LIKE },
@@ -34,7 +34,7 @@ router
 
 // Check if user has liked a product or review
 router.get(
-  "/status/:productId?/:reviewId?",
+  "/status",
   auth.hasAnyPermission([
     { action: PermissionAction.READ, resource: ResourceType.LIKE },
     { action: PermissionAction.MANAGE, resource: ResourceType.LIKE },

@@ -34,7 +34,12 @@ app.set("trust proxy", 3);
 
 // Security middleware
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.FRONT_END_URL,
+    credentials: true,
+  })
+);
 
 // Request logging
 app.use(

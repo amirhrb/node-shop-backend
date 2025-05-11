@@ -1,0 +1,28 @@
+{
+  "addresses": [
+    {
+      "addressLine": "123 Main St",
+      "city": "Tehran",
+      "state": "Tehran Province",
+      "postalCode": "12345",
+      "country": "Iran",
+      "isDefault": true
+    },
+    {
+      "addressLine": "456 Business Ave",
+      "city": "Isfahan",
+      "state": "Isfahan Province",
+      "postalCode": "54321",
+      "country": "Iran",
+      "isDefault": false
+    },
+    {
+      "addressLine": "789 Family Rd",
+      "city": "Shiraz",
+      "state": "Fars Province",
+      "postalCode": "67890",
+      "country": "Iran",
+      "isDefault": false
+    }
+  ]
+}

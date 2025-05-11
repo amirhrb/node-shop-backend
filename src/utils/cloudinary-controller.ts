@@ -10,29 +10,36 @@ const uploadImage = async (
   if (!file) {
     throw new Error("No file provided");
   }
+  try {
+    return new Promise((resolve, reject) => {
+      const readableStream = new Readable();
+      readableStream.push(file.buffer);
+      readableStream.push(null);
 
-  return new Promise((resolve, reject) => {
-    const readableStream = new Readable();
-    readableStream.push(file.buffer);
-    readableStream.push(null);
-
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: "auto", // Use "auto" to automatically detect the type
-        public_id: file.filename, // Use filename as public_id
-      },
-      (error, result) => {
-        if (error) {
-          reject(`Image upload failed: ${error}`);
-        } else {
-          resolve(result);
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          resource_type: "auto", // Use "auto" to automatically detect the type
+          public_id: file.filename, // Use filename as public_id
+        },
+        (error, result) => {
+          if (error) {
+            reject(`Image upload failed: ${error}`);
+          } else {
+            resolve(result);
+          }
         }
-      }
-    );
+      );
 
-    readableStream.pipe(uploadStream);
-  });
+      readableStream.pipe(uploadStream);
+    });
+  } catch (error) {
+    throw new Error(
+      `Upload failed: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
 };
 
 export default uploadImage;
