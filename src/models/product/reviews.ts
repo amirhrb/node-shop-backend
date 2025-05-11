@@ -72,7 +72,7 @@ reviewsSchema.pre(/^find/, function (next): void {
   this.populate([
     {
       path: "user",
-      select: "name",
+      select: "name email profile.photo",
     },
   ]);
 
@@ -121,9 +121,7 @@ reviewsSchema.post<ReviewQuery>(
   /^findOneAnd/,
   async function (): Promise<void> {
     if (this.r) {
-      await (this.r.constructor as unknown as IReviewModel).calcAverageRatings(
-        this.r.product
-      );
+      await (this.model as IReviewModel).calcAverageRatings(this.r.product);
     }
   }
 );

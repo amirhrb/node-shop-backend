@@ -10,8 +10,8 @@ import { defaultUserPermissions } from "../../utils/permission-factory";
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   username: string;
-  firstName: string;
-  lastName: string;
+  firstname: string;
+  lastname: string;
   email?: string;
   phone: string;
   roles: mongoose.Types.ObjectId[];
@@ -36,17 +36,18 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
       unique: true,
       required: [true, "Please provide a username"],
     },
-    firstName: {
+    firstname: {
       type: String,
       required: [true, "User First Name is required"],
     },
-    lastName: {
+    lastname: {
       type: String,
       required: [true, "User Last Name is required"],
     },
     email: {
       type: String,
       unique: true,
+      sparse: true,
       lowercase: true,
       validate: {
         validator: (value: string | undefined): boolean => {

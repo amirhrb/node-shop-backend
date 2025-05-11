@@ -154,8 +154,8 @@ describe("Authentication", () => {
         .patch("/api/v1/users/update-profile")
         .set("Authorization", "Bearer access-token")
         .send({
-          firstName: "John",
-          lastName: "Doe",
+          firstname: "John",
+          lastname: "Doe",
           username: "johndoe",
           email: "john@example.com",
         });
@@ -169,8 +169,8 @@ describe("Authentication", () => {
       const response = await request(app)
         .patch("/api/v1/users/update-profile")
         .send({
-          firstName: "John",
-          lastName: "Doe",
+          firstname: "John",
+          lastname: "Doe",
           username: "johndoe",
           email: "john@example.com",
         });

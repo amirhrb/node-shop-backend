@@ -56,6 +56,9 @@ class ProfileController extends BaseController<IProfile> {
 
   uploadUserPhoto = (req: Request, res: Response, next: NextFunction): void => {
     try {
+      if (!this.upload) {
+        return next(new AppError("Upload middleware not initialized", 500));
+      }
       this.upload(req, res, (err: MulterError | null) => {
         if (err) {
           switch (err.code) {
@@ -72,7 +75,7 @@ class ProfileController extends BaseController<IProfile> {
               );
             default:
               return next(
-                new AppError(err.message || "Error uploading file", 400)
+                new AppError(`Error uploading file: ${err.message}`, 400)
               );
           }
         }

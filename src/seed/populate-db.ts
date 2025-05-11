@@ -121,8 +121,8 @@ const createAdminRolesAndUsers = async (
     },
     {
       username: process.env.ADMIN_USERNAME,
-      firstName: process.env.ADMIN_FIRST_NAME,
-      lastName: process.env.ADMIN_LAST_NAME,
+        firstname: process.env.ADMIN_FIRST_NAME,
+        lastname: process.env.ADMIN_LAST_NAME,
       email: process.env.ADMIN_EMAIL,
       phone: process.env.ADMIN_PHONE,
       roles: [userRole._id, roles.admin[0]._id],
@@ -180,8 +180,17 @@ const populateDevData = async (
 
 const populateDB = async (): Promise<never> => {
   try {
-    // Connect to MongoDB
-    console.log(process.env.MONGO_URI, process.env.NODE_ENV);
+    // Connect to MongoDB with increased timeout
+    console.log(process.env.MONGO_URI?.slice(-10), process.env.NODE_ENV);
+
+    await mongoose.connect(
+      process.env.MONGO_URI || "mongodb://localhost:27017/node-shop-backend",
+      {
+        serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
+        connectTimeoutMS: 30000,
+      }
+    );
+
     logger.info("Connected to MongoDB");
 
     // Start a session

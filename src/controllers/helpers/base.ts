@@ -140,7 +140,8 @@ class BaseController<T extends Document> {
       object | string | number | boolean | null | undefined
     >,
     session?: mongoose.ClientSession,
-    enableSearch: boolean = false
+    enableSearch: boolean = false,
+    populateOptions?: PopulateOptions
   ) => {
     return async (
       req: Request,
@@ -154,7 +155,15 @@ class BaseController<T extends Document> {
           .limitFields()
           .paginate();
 
-        const documents = await features.query.session(session || null);
+        let documents;
+
+        if (populateOptions)
+          documents = await features.query
+            .populate(populateOptions)
+            .session(session || null);
+        else {
+          documents = await features.query.session(session || null);
+        }
 
         res.status(200).json({
           status: "success",

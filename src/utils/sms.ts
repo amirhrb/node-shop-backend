@@ -19,7 +19,7 @@ class SMS {
 
   constructor(user: IUser, url: string) {
     this.to = user.phone;
-    this.firstName = user.firstName;
+    this.firstName = user.firstname;
     this.url = url;
     this.melipayamak = new Melipayamak(
       process.env.MELIPAYAMAK_USERNAME as string,

@@ -34,12 +34,12 @@ class UserController extends BaseController<IUser> {
         );
       }
 
-      const { email, username, firstName, lastName, phone } = req.body;
+      const { email, username, firstname, lastname } = req.body;
 
       const { id } = req.user;
       const user = await User.findByIdAndUpdate(
         id,
-        { email, username, firstName, lastName, phone },
+        { email, username, firstname, lastname },
         {
           new: true,
           runValidators: true,
@@ -67,7 +67,7 @@ class UserController extends BaseController<IUser> {
     }
   };
 
-  getAllUsers = this.getAll();
+  getAllUsers = this.getAll(undefined, undefined, true);
   getUserByID = this.getOne();
   updateUser = async (
     req: Request,
