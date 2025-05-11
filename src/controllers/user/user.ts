@@ -52,6 +52,44 @@ class UserController extends BaseController<IUser> {
     }
   };
 
+  changePhone = async (
+    req: Request,
+    _res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      // retired code :/ once upon a time i did it with password stuff
+      if (req.body.password) {
+        return next(
+          new AppError(
+            "This route is not for password update. Please use /updatePassword",
+            400
+          )
+        );
+      }
+
+      const {  phone } = req.body;
+
+      const { id } = req.user;
+      const user = await User.findByIdAndUpdate(
+        id,
+        { phone },
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+      if (!user) {
+        return next(new AppError("User not found", 404));
+      }
+
+      next() // go for sending verification code to user
+    } catch (error) {
+      next(error);
+    }
+  };
+
   deleteMe = async (
     req: Request,
     res: Response,
@@ -86,6 +124,10 @@ class UserController extends BaseController<IUser> {
       delete req.body.lastLoginAttempt;
       delete req.body.phoneVerificationToken;
       delete req.body.phoneVerificationExpires;
+      delete req.body.phone;
+      delete req.body.previousPhone
+      delete req.body.newPhone
+      delete req.body.email
 
       return await this.updateOne()(req, res, next);
     } catch (error) {

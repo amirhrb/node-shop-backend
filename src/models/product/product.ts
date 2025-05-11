@@ -3,7 +3,9 @@ import mongoose, { Schema, Model, Document } from "mongoose";
 export interface IProduct extends Document {
   name: string;
   price: number;
+  reviews: mongoose.Types.ObjectId[];
   description: string;
+  owner: mongoose.Types.ObjectId;
   images: string[];
   ogImage: string;
   category: string;
@@ -58,6 +60,17 @@ const productSchema: Schema<IProduct> = new mongoose.Schema(
       },
       default: "IRR",
     },
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "UserId is required"],
+    },
+    reviews: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Review",
+      },
+    ],
     stockQuantity: {
       type: Number,
       required: [true, "Stock quantity is required"],
@@ -203,6 +216,13 @@ productSchema.pre("save", function (next) {
 productSchema.pre("save", function (next) {
   if (this.stockQuantity === 0) {
     this.isAvailable = false;
+  }
+  next();
+});
+
+productSchema.pre("save", function (next) {
+  if (this.isModified("reviews")) {
+    this.numOfReviews = this.reviews.length;
   }
   next();
 });

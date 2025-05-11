@@ -15,7 +15,6 @@ class CartController extends BaseController<ICart> {
     next: NextFunction
   ): Promise<void> => {
     try {
-      console.log("first");
       const { product, quantity } = req.body;
       const userId = req.user.id;
 
@@ -40,7 +39,6 @@ class CartController extends BaseController<ICart> {
       if (quantity > productDoc.stockQuantity) {
         return next(new AppError("Not enough stock", 400));
       }
-      console.log("here before finding cart");
       const cartItem = await Cart.findOne({
         product: productDoc.id,
         user: userId,
@@ -58,7 +56,6 @@ class CartController extends BaseController<ICart> {
         // Update the cart item using the updateOne method from the base class
         req.params.id = (cartItem._id as string).toString();
         req.body.quantity = cartItem.quantity;
-        console.log("here before model update");
         return await this.updateOne()(req, res, next);
       } else {
         // Use the createOne method from the base class to add a new item
@@ -70,11 +67,73 @@ class CartController extends BaseController<ICart> {
     }
   };
 
+  getCartSummary = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user.id;
+      const cartItems = await Cart.find({ user: userId }).populate('product');
+      
+      const summary = {
+        totalItems: cartItems.length,
+        totalQuantity: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+        totalPrice: await Cart.calcTotalPrice(userId),
+        items: cartItems
+      };
+
+      res.status(200).json({
+        status: "success",
+        data: summary
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  clearCart = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    const userId = req.user.id;
+    const cartItems = await Cart.find({ user: userId });
+
+    if (!cartItems.length) {
+      return next(new AppError("There is no product with that id", 404));
+    }
+
+    const response = await Cart.deleteMany({ user: userId });
+
+    if (response.deletedCount > 0 && response.acknowledged) {
+      res.status(204).send();
+    } else {
+      return next(new AppError("Deletion was not acknowledged", 400));
+    }
+  };
+
   deleteCartItem = async (
     req: Request,
     res: Response,
     next: NextFunction
   ): Promise<void> => {
+    const userId = req.user.id;
+    const cartId = req.params.id;
+
+    if (!cartId) {
+      return next(new AppError("Cart id is required", 400));
+    }
+
+    const cartItem = await Cart.findOne({ user: userId, product: cartId });
+
+    if (!cartItem) {
+      return next(
+        new AppError("There is no product with that id in cart", 400)
+      );
+    }
+
+    req.params.id = (cartItem._id as string).toString();
     return this.deleteOne()(req, res, next);
   };
 

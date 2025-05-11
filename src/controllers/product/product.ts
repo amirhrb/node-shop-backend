@@ -48,6 +48,8 @@ class ProductController extends BaseController<IProduct> {
       delete req.body.ratingsQuantity;
       delete req.body.ratingsAverage;
       delete req.body.isArchived;
+      // Set the user ID from the authenticated user
+      req.body.owner = req.user.id;
 
       return await this.createOne()(req, res, next);
     } catch (error) {

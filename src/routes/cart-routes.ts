@@ -1,5 +1,6 @@
 import { RequestHandler, Router } from "express";
 import Cart from "../controllers/cart";
+import CartModel from "../models/cart";
 import Authentication from "../controllers/helpers/authentication";
 import { PermissionAction, ResourceType } from "../models/user/permission";
 
@@ -24,17 +25,37 @@ router
       { action: PermissionAction.MANAGE, resource: ResourceType.CART },
     ]) as RequestHandler,
     cart.getCartList as RequestHandler
+  )
+  .delete(
+    auth.hasAnyPermission([
+      { action: PermissionAction.CREATE, resource: ResourceType.CART },
+    ]) as RequestHandler,
+    cart.clearCart as RequestHandler
   );
 
-router
-  .route("/:id")
-  .all(
-    auth.protect as RequestHandler,
-    auth.hasAnyPermission([
-      { action: PermissionAction.UPDATE, resource: ResourceType.CART },
-    ]) as RequestHandler
-  )
-  .patch(cart.addOrUpdateCartItem as RequestHandler)
-  .delete(cart.deleteCartItem as RequestHandler);
+router.get(
+  "/summary",
+  auth.protect as RequestHandler,
+  auth.hasAnyPermission([
+    { action: PermissionAction.READ, resource: ResourceType.CART },
+    { action: PermissionAction.MANAGE, resource: ResourceType.CART },
+  ]) as RequestHandler,
+  cart.getCartSummary as RequestHandler
+);
+
+router.route("/:id").delete(
+  auth.protect as RequestHandler,
+  auth.hasAnyPermission(
+    [{ action: PermissionAction.CREATE, resource: ResourceType.CART }],
+    async (req) => {
+      const cart = await CartModel.findOne({
+        product: req.params.id,
+        user: req.user.id,
+      });
+      return cart?.user;
+    }
+  ) as RequestHandler,
+  cart.deleteCartItem
+);
 
 export default router;

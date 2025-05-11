@@ -11,6 +11,7 @@ import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import { createLogger, format, transports } from "winston";
 import { setTimeout } from "timers/promises";
+import Address from "../models/user/address";
 
 // Load environment variables
 dotenv.config();
@@ -151,9 +152,56 @@ class OrderController extends BaseController<IOrder> {
     try {
       const { address, paymentMethod } = req.body;
 
-      if (!address) {
-        throw new AppError("address id is required", 400);
+      // If address ID is provided, verify it belongs to the user
+      let shippingAddress;
+
+      if (address) {
+        shippingAddress = await Address.findOne({
+          _id: address,
+          user: req.user.id,
+        }).session(session);
+
+        if (!shippingAddress) {
+          return next(AppError.notFound("Shipping Address"));
+        }
+
+        // If the address is found but not set as default, set it as default
+        if (!shippingAddress.isDefault) {
+          // Unset any existing default
+          await Address.updateMany(
+            { user: req.user.id, isDefault: true },
+            { isDefault: false },
+            { session }
+          );
+
+          // Set this address as default
+          await Address.findByIdAndUpdate(
+            shippingAddress._id,
+            { isDefault: true },
+            { session }
+          );
+        }
+      } else {
+        // If no address provided, use the default address
+        shippingAddress = await Address.findOne({
+          user: req.user.id,
+          isDefault: true,
+        }).session(session);
+
+        if (!shippingAddress) {
+          return next(
+            new AppError(
+              "No default shipping address found. Please add an address or specify one.",
+              400
+            )
+          );
+        }
       }
+
+      // Set the shipping address in the order
+      req.body.shippingAddress = shippingAddress._id;
+
+      // Continue with the rest of your order creation logic
 
       // Remove status and paymentStatus from req.body if they are present
       delete req.body.status;
@@ -176,7 +224,7 @@ class OrderController extends BaseController<IOrder> {
           res,
           session,
           totalAmount,
-          address,
+          req.body.shippingAddress as string,
           products
         );
       } else {
@@ -185,7 +233,7 @@ class OrderController extends BaseController<IOrder> {
           res,
           session,
           totalAmount,
-          address,
+          req.body.shippingAddress as string,
           products
         );
       }
@@ -205,6 +253,11 @@ class OrderController extends BaseController<IOrder> {
     products: OrderItem[]
   ): Promise<void> {
     try {
+      const address = await Address.findById(addressId);
+      if (!address) {
+        throw new AppError("Address not found", 404);
+      }
+
       this.validatePaymentAmount(totalAmount);
 
       const CallbackURL = `${req.protocol}://${req.get(
@@ -226,7 +279,7 @@ class OrderController extends BaseController<IOrder> {
           user: req.user.id,
           totalAmount,
           orderItems: products,
-          shippingAddress: new mongoose.Types.ObjectId(addressId),
+          shippingAddress: address.id,
           paymentMethod: this.PAYMENT_METHODS.ONLINE,
           transactionId: response.data.authority,
           currency: this.CURRENCY,
@@ -349,11 +402,16 @@ class OrderController extends BaseController<IOrder> {
     addressId: string,
     products: OrderItem[]
   ): Promise<void> {
+    const address = await Address.findById(addressId);
+    if (!address) {
+      throw new AppError("Address not found", 404);
+    }
+
     const newOrder: Partial<IOrder> = {
       user: req.user.id,
       totalAmount,
       orderItems: products,
-      shippingAddress: new mongoose.Types.ObjectId(addressId),
+      shippingAddress: address.id,
       paymentMethod: this.PAYMENT_METHODS.CASH_ON_DELIVERY,
       currency: this.CURRENCY,
       status: "pay-on-delivery",
@@ -410,23 +468,26 @@ class OrderController extends BaseController<IOrder> {
 
         if (response.data.code === 100 || response.data.code === 101) {
           order.paymentStatus = true;
-          order.status = "Pending";
+          order.status = "pending";
 
           const user = await User.findById(order.user).session(session);
-          const url = `${req.protocol}://${req.get(
-            "host"
-          )}/api/v1/users/orders/${order.id}`;
-          await new SMS(user as IUser, url).sendSuccessPayment(
-            JSON.parse(JSON.stringify(order))
-          );
-
-          order.paymentStatusSent = true;
+          if (!order.paymentStatusSent) {
+            const url = `${req.protocol}://${req.get(
+              "host"
+            )}/api/v1/users/orders/${order.id}`;
+            await new SMS(user as IUser, url).sendSuccessPayment(
+              JSON.parse(JSON.stringify(order))
+            );
+            order.paymentStatusSent = true;
+          }
 
           await order.save({ session });
           await session.commitTransaction();
           session.endSession();
 
-          logger.info(`Payment verified successfully for user ${req.user?.id}`);
+          logger.info(
+            `Payment verified successfully for user ${user?.firstname} ${user?.lastname}: ${user?.phone}`
+          );
           res.json({
             message: "/payment-success",
             transactionId: order.transactionId,
@@ -437,10 +498,11 @@ class OrderController extends BaseController<IOrder> {
             `Payment verification failed with status: ${response.data.code}`
           );
 
-          const user = await User.findById(order.user).session(session);
-          await new SMS(user as IUser, "").sendfailedPayment();
-
-          order.paymentStatusSent = true;
+          if (!order.paymentStatusSent) {
+            const user = await User.findById(order.user).session(session);
+            await new SMS(user as IUser, "").sendfailedPayment();
+            order.paymentStatusSent = true;
+          }
 
           await order.save({ session });
 
@@ -628,7 +690,7 @@ class OrderController extends BaseController<IOrder> {
         throw new AppError("Only pending orders can be cancelled", 400);
       }
 
-      order.status = "Cancelled";
+      order.status = "cancelled";
       await order.save({ session });
 
       await session.commitTransaction();

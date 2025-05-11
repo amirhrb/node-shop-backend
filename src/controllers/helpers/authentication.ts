@@ -7,10 +7,10 @@ import SMS from "../../utils/sms";
 import mongoose from "mongoose";
 import RefreshToken from "../../models/user/tokens";
 import Role from "../../models/user/role";
-import Permission from "../../models/user/permission";
+import Permission, { PermissionConditions } from "../../models/user/permission";
 import { SignOptions } from "jsonwebtoken";
 import { PermissionAction, ResourceType } from "../../models/user/permission";
-import { hasPermission } from "../../utils/check-permission";
+import { hasPermission, ResourceData } from "../../utils/check-permission";
 
 interface JwtPayload {
   id: string;
@@ -75,7 +75,6 @@ class Authentication {
       expires: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
       httpOnly: true,
       secure: req.secure || req.headers["x-forwarded-proto"] === "https",
-      path: "/api/v1/users/refresh-token",
     };
 
     res.cookie("refresh_token", token, cookieOptions);
@@ -105,8 +104,8 @@ class Authentication {
           [
             {
               phone,
-              firstName: phone,
-              lastName: phone,
+              firstname: phone,
+              lastname: phone,
               username: phone,
             },
           ],
@@ -148,7 +147,7 @@ class Authentication {
 
   verifyCode = async (
     req: Request,
-    res: Response,
+    _res: Response,
     next: NextFunction
   ): Promise<void> => {
     try {
@@ -204,6 +203,27 @@ class Authentication {
 
       await user.save();
 
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  confirmLogin = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { userId } = req.body;
+
+      const user = await User.findById(userId).select(
+        "+phoneVerificationToken +phoneVerificationExpires +loginAttempts +loginExpires +lastLoginAttempt"
+      );
+      if (!user) {
+        return next(new AppError("User not found", 404));
+      }
+
       // Generate new token pair
       const accessToken = this.generateToken(
         { id: user.id.toString() },
@@ -233,7 +253,59 @@ class Authentication {
         status: "success",
         message: "Logged in successfully",
         accessToken,
-        isProfileComplete: Boolean(user.firstName !== user.phone),
+        isProfileComplete: Boolean(user.firstname !== user.phone),
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  confirmPhoneChange = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { userId } = req.body;
+
+      const user = await User.findById(userId).select(
+        "+phoneVerificationToken +phoneVerificationExpires +loginAttempts +loginExpires +lastLoginAttempt"
+      );
+      if (!user) {
+        return next(new AppError("User not found", 404));
+      }
+
+      // Generate new token pair
+      const accessToken = this.generateToken(
+        { id: user.id.toString() },
+        process.env.JWT_SECRET as string,
+        process.env.JWT_ACCESS_EXPIRES_IN as string
+      );
+
+      const refreshToken = this.generateToken(
+        { id: user.id.toString() },
+        process.env.JWT_REFRESH_SECRET as string,
+        process.env.JWT_REFRESH_EXPIRES_IN as string
+      );
+
+      await RefreshToken.create({
+        refreshToken,
+        user: user._id,
+        clientFingerprint: {
+          ip: req.ip,
+          userAgent: req.headers["user-agent"],
+        },
+      });
+
+      this.sendAccessTokenCookie(accessToken, req, res);
+      this.sendRefreshTokenCookie(refreshToken, req, res);
+
+      await user.confirmPhoneChange();
+
+      res.status(200).json({
+        status: "success",
+        message: "Phone number changed successfully",
+        accessToken,
       });
     } catch (error) {
       next(error);
@@ -326,13 +398,20 @@ class Authentication {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { refreshToken } = req.body;
+      let refreshToken;
+      if (req.cookies.refresh_token) {
+        refreshToken = req.cookies.refresh_token;
+      }
 
       if (refreshToken) {
         await RefreshToken.findOneAndDelete({ refreshToken });
       }
 
       res.cookie("access_token", "loggedout", {
+        expires: new Date(Date.now() + 10 * 1000),
+        httpOnly: true,
+      });
+      res.cookie("refresh_token", "loggedout", {
         expires: new Date(Date.now() + 10 * 1000),
         httpOnly: true,
       });
@@ -357,6 +436,10 @@ class Authentication {
       await RefreshToken.deleteMany({ user: id });
 
       res.cookie("access_token", "loggedout", {
+        expires: new Date(Date.now() + 10 * 1000),
+        httpOnly: true,
+      });
+      res.cookie("refresh_token", "loggedout", {
         expires: new Date(Date.now() + 10 * 1000),
         httpOnly: true,
       });
@@ -417,15 +500,68 @@ class Authentication {
       next(error);
     }
   };
+  // retired code :/
+  // restrictTo(
+  //   action: PermissionAction,
+  //   resource: ResourceType,
+  //   _conditions?: {
+  //     ownerOnly?: boolean;
+  //     department?: string[];
+  //     status?: string[];
+  //   }
+  // ) {
+  //   return async (
+  //     req: Request,
+  //     _res: Response,
+  //     next: NextFunction
+  //   ): Promise<void> => {
+  //     try {
+  //       const { user } = req;
+  //       if (!user) {
+  //         return next(
+  //           new AppError(
+  //             "You are not logged in! Please log in to get access.",
+  //             401
+  //           )
+  //         );
+  //       }
 
-  restrictTo(
-    action: PermissionAction,
-    resource: ResourceType,
-    _conditions?: {
-      ownerOnly?: boolean;
-      department?: string[];
-      status?: string[];
-    }
+  //       // Get resource data for condition checking
+  //       const resourceData = {
+  //         ownerId: req.params.userId
+  //           ? new mongoose.Types.ObjectId(req.params.userId)
+  //           : undefined,
+  //         status: req.body.status || (req.query.status as string),
+  //         department: user.department,
+  //       };
+
+  //       const hasAccess = await hasPermission(
+  //         user,
+  //         { action, resource },
+  //         resourceData
+  //       );
+
+  //       if (!hasAccess) {
+  //         return next(
+  //           new AppError(
+  //             "You do not have permission to perform this action",
+  //             403
+  //           )
+  //         );
+  //       }
+
+  //       next();
+  //     } catch (error) {
+  //       next(error);
+  //     }
+  //   };
+  // }
+
+  // New method to check if user has any of the specified permissions
+
+  hasAnyPermission(
+    permissions: { action: PermissionAction; resource: ResourceType }[],
+    getResourceOwnerId?: (req: Request) => Promise<mongoose.Types.ObjectId | undefined> | mongoose.Types.ObjectId | undefined
   ) {
     return async (
       req: Request,
@@ -443,60 +579,18 @@ class Authentication {
           );
         }
 
-        // Get resource data for condition checking
-        const resourceData = {
-          ownerId: req.params.userId
-            ? new mongoose.Types.ObjectId(req.params.userId)
-            : undefined,
+        // Get the resource owner ID using the provided function
+        const ownerId = getResourceOwnerId ? await getResourceOwnerId(req) : undefined;
+
+        const resourceData: ResourceData = {
+          ownerId,
           status: req.body.status || (req.query.status as string),
           department: user.department,
         };
 
-        const hasAccess = await hasPermission(
-          user,
-          { action, resource },
-          resourceData
-        );
-
-        if (!hasAccess) {
-          return next(
-            new AppError(
-              "You do not have permission to perform this action",
-              403
-            )
-          );
-        }
-
-        next();
-      } catch (error) {
-        next(error);
-      }
-    };
-  }
-
-  // New method to check if user has any of the specified permissions
-  hasAnyPermission(
-    permissions: { action: PermissionAction; resource: ResourceType }[]
-  ) {
-    return async (
-      req: Request,
-      _res: Response,
-      next: NextFunction
-    ): Promise<void> => {
-      try {
-        const { user } = req;
-        if (!user) {
-          return next(
-            new AppError(
-              "You are not logged in! Please log in to get access.",
-              401
-            )
-          );
-        }
-
         const permissionChecks = await Promise.all(
           permissions.map(({ action, resource }) =>
-            hasPermission(user, { action, resource })
+            hasPermission(user, { action, resource }, resourceData)
           )
         );
 
@@ -564,10 +658,10 @@ class Authentication {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { firstName, lastName, username, email } = req.body;
+      const { firstName, lastname, username, email } = req.body;
       const { id } = req.user;
 
-      if (!firstName || !lastName || !username) {
+      if (!firstName || !lastname || !username) {
         return next(new AppError("Missing required information", 400));
       }
 
@@ -576,8 +670,8 @@ class Authentication {
         return next(new AppError("User not found", 404));
       }
 
-      user.firstName = firstName;
-      user.lastName = lastName;
+      user.firstname = firstName;
+      user.lastname = lastname;
       user.username = username;
       user.email = email;
 
@@ -848,8 +942,20 @@ class Authentication {
     try {
       const {
         userId,
-        permissionsToAdd = [],
-        permissionsToRemove = [],
+        permissionsToAdd,
+        permissionsToRemove,
+      }: {
+        userId: string;
+        permissionsToAdd: {
+          action: string;
+          resource: string;
+          conditions: PermissionConditions;
+        }[];
+        permissionsToRemove: {
+          action: string;
+          resource: string;
+          conditions: PermissionConditions;
+        }[];
       } = req.body;
 
       if (!userId) {

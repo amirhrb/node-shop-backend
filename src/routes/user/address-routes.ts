@@ -24,7 +24,24 @@ router
       { action: PermissionAction.READ, resource: ResourceType.ADDRESS },
       { action: PermissionAction.MANAGE, resource: ResourceType.ADDRESS },
     ]) as RequestHandler,
+    address.getAllAddresses as RequestHandler
+  );
+
+router
+  .route("/:id")
+  .get(
+    auth.hasAnyPermission([
+      { action: PermissionAction.READ, resource: ResourceType.ADDRESS },
+      { action: PermissionAction.MANAGE, resource: ResourceType.ADDRESS },
+    ]) as RequestHandler,
     address.getAddress as RequestHandler
+  )
+  .patch(
+    auth.hasAnyPermission([
+      { action: PermissionAction.UPDATE, resource: ResourceType.ADDRESS },
+      { action: PermissionAction.MANAGE, resource: ResourceType.ADDRESS },
+    ]) as RequestHandler,
+    address.updateAddress
   )
   .delete(
     auth.hasAnyPermission([
@@ -33,5 +50,11 @@ router
     ]) as RequestHandler,
     address.deleteAddress as RequestHandler
   );
-
+router.route("/:id/set-default").post(
+  auth.hasAnyPermission([
+    { action: PermissionAction.UPDATE, resource: ResourceType.ADDRESS },
+    { action: PermissionAction.MANAGE, resource: ResourceType.ADDRESS },
+  ]) as RequestHandler,
+  address.setDefaultAddress
+);
 export default router;

@@ -22,16 +22,25 @@ type PermissionObject = {
 export const createPermissions = (
   configs: PermissionConfig[]
 ): PermissionObject[] => {
-  return configs.flatMap((config) => {
+  const uniquePermissions = new Map<string, PermissionObject>();
+
+  configs.forEach((config) => {
     const { resource, actions, ownerOnly, description } = config;
-    return actions.map((action) => ({
-      name: `${resource}:${action}`,
-      description: description || `${action} ${resource}`,
-      action,
-      resource,
-      conditions: ownerOnly ? { ownerOnly: true } : undefined,
-    }));
+    actions.forEach((action) => {
+      const name = `${resource}:${action}${ownerOnly ? ":owner" : ""}`;
+      if (!uniquePermissions.has(name)) {
+        uniquePermissions.set(name, {
+          name,
+          description: description || `${action} ${resource}`,
+          action,
+          resource,
+          conditions: ownerOnly ? { ownerOnly: true } : undefined,
+        });
+      }
+    });
   });
+
+  return Array.from(uniquePermissions.values());
 };
 
 // Common permission sets
@@ -40,7 +49,7 @@ export const userProfilePermissionsCommon = createPermissions([
     resource: ResourceType.PROFILE,
     actions: [PermissionAction.READ, PermissionAction.UPDATE],
     ownerOnly: true,
-    description: "User profile operations",
+    description: "Manage own user profile",
   },
   {
     resource: ResourceType.USER,
@@ -50,7 +59,7 @@ export const userProfilePermissionsCommon = createPermissions([
       PermissionAction.DELETE,
     ],
     ownerOnly: true,
-    description: "User operations",
+    description: "Manage own user account",
   },
 ]);
 
@@ -64,7 +73,7 @@ export const cartPermissionsCommon = createPermissions([
       PermissionAction.DELETE,
     ],
     ownerOnly: true,
-    description: "Shopping cart operations",
+    description: "Manage own shopping cart",
   },
 ]);
 
@@ -73,7 +82,7 @@ export const orderPermissionsCommon = createPermissions([
     resource: ResourceType.ORDER,
     actions: [PermissionAction.CREATE, PermissionAction.READ],
     ownerOnly: true,
-    description: "Order operations",
+    description: "Manage own orders",
   },
 ]);
 
@@ -164,47 +173,63 @@ export const defaultUserPermissions = [
   ...settingsPermissionsCommon,
 ];
 
-// Admin permission sets
+// Admin permission sets with more granular control
 export const adminPermissions = createPermissions([
   {
     resource: ResourceType.USER,
     actions: [PermissionAction.MANAGE],
-    description: "Manage user resources",
+    description: "Manage user accounts and permissions",
   },
   {
     resource: ResourceType.PRODUCT,
-    actions: [PermissionAction.MANAGE],
-    description: "Manage product resources",
+    actions: [
+      PermissionAction.CREATE,
+      PermissionAction.UPDATE,
+      PermissionAction.DELETE,
+      PermissionAction.MANAGE,
+    ],
+    description: "Full product management",
   },
   {
     resource: ResourceType.ORDER,
-    actions: [PermissionAction.MANAGE],
-    description: "Manage order operations",
+    actions: [PermissionAction.UPDATE, PermissionAction.MANAGE],
+    description: "Process and manage orders",
   },
   {
     resource: ResourceType.REVIEW,
     actions: [PermissionAction.MANAGE],
-    description: "Manage review operations",
+    description: "Moderate reviews",
   },
   {
     resource: ResourceType.CATEGORY,
-    actions: [PermissionAction.MANAGE],
+    actions: [
+      PermissionAction.CREATE,
+      PermissionAction.UPDATE,
+      PermissionAction.DELETE,
+      PermissionAction.MANAGE,
+    ],
     description: "Manage product categories",
   },
   {
     resource: ResourceType.DASHBOARD,
     actions: [PermissionAction.READ, PermissionAction.MANAGE],
-    description: "Access and manage dashboard",
+    description: "Access analytics dashboard",
   },
   {
     resource: ResourceType.SETTINGS,
     actions: [PermissionAction.UPDATE],
-    description: "Manage application settings",
+    description: "Configure system settings",
   },
   {
     resource: ResourceType.ROLE,
-    actions: [PermissionAction.READ, PermissionAction.MANAGE],
-    description: "Manage user roles",
+    actions: [
+      PermissionAction.CREATE,
+      PermissionAction.READ,
+      PermissionAction.UPDATE,
+      PermissionAction.DELETE,
+      PermissionAction.MANAGE,
+    ],
+    description: "Manage user roles and permissions",
   },
 ]);
 

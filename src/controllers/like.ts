@@ -119,7 +119,7 @@ class LikeController extends BaseController<ILike> {
       if (reviewId) query.review = reviewId;
 
       const likes = await Like.find(query)
-        .populate("user", "name email")
+        .populate("user", "name email profile.photo")
         .sort("-createdAt");
 
       if (!likes) {
@@ -142,10 +142,22 @@ class LikeController extends BaseController<ILike> {
       const { productId, reviewId } = req.params;
       const userId = req.user.id;
 
-      const like = await Like.findOne({
-        user: userId,
-        $or: [{ product: productId }, { review: reviewId }],
-      });
+      let like;
+      if (productId) {
+        like = await Like.findOne({
+          user: userId,
+          product: productId,
+        });
+      } else if (reviewId) {
+        like = await Like.findOne({
+          user: userId,
+          review: reviewId,
+        });
+      } else {
+        return next(
+          new AppError("Params of reviewId or productId is required", 400)
+        );
+      }
       res.json({ isLiked: !!like });
     } catch (error) {
       next(error);

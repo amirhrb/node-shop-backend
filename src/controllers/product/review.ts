@@ -4,7 +4,8 @@ import BaseController from "../helpers/base";
 import AppError from "../../utils/error";
 import Product from "../../models/product/product";
 import Order from "../../models/order";
-// import Role from "../../models/user/role";
+import User from "../../models/user/user";
+import mongoose from "mongoose";
 
 class ReviewsController extends BaseController<IReview> {
   constructor() {
@@ -16,6 +17,8 @@ class ReviewsController extends BaseController<IReview> {
     res: Response,
     next: NextFunction
   ): Promise<void> => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
       if (req.params.productId) req.body.product = req.params.productId;
       const { product, rating, review } = req.body;
@@ -26,7 +29,7 @@ class ReviewsController extends BaseController<IReview> {
         );
       }
       // Todo: Add image to reviews
-      const productExist = await Product.findById(product);
+      const productExist = await Product.findById(product).session(session);
 
       if (!productExist) {
         return next(new AppError("There is no product with that id", 400));
@@ -37,7 +40,7 @@ class ReviewsController extends BaseController<IReview> {
         user: req.user.id,
         "orderItems.product": product,
         status: "delivered",
-      });
+      }).session(session);
 
       if (!orderExist) {
         return next(
@@ -50,9 +53,42 @@ class ReviewsController extends BaseController<IReview> {
 
       req.body.user = req.user.id;
 
-      return await this.createOne()(req, res, next);
+      // Create the review
+      const newReview = await Review.create([req.body], { session });
+
+      // Update the user's reviews array
+      await User.updateOne(
+        { id: req.user.id },
+        {
+          $push: {
+            reviews: newReview[0]._id,
+          },
+        },
+        { session }
+      );
+
+      // Update the product's reviews array
+      await Product.updateOne(
+        { id: product },
+        {
+          $push: {
+            reviews: newReview[0]._id,
+          },
+        },
+        { session }
+      );
+
+      await session.commitTransaction();
+
+      res.status(201).json({
+        status: "success",
+        data: newReview[0],
+      });
     } catch (error) {
+      await session.abortTransaction();
       next(error);
+    } finally {
+      session.endSession();
     }
   };
 
@@ -69,51 +105,6 @@ class ReviewsController extends BaseController<IReview> {
     return this.getAll()(req, res, next); // immediately invoking the function returned by getAll
   };
 
-  // checkReviewOwner = ({
-  //   allowAdmin = false,
-  // }: {
-  //   allowAdmin?: boolean;
-  // }): ((req: Request, _res: Response, next: NextFunction) => Promise<void>) => {
-  //   return async (
-  //     req: Request,
-  //     _res: Response,
-  //     next: NextFunction
-  //   ): Promise<void> => {
-  //     try {
-  //       const { id } = req.params;
-
-  //       const review = await Review.findById(id);
-
-  //       if (!review) {
-  //         return next(new AppError("Review not found", 404));
-  //       }
-
-  //       // Allow admin users to proceed if it allowed
-  //       if (allowAdmin) {
-  //         const userRoles = await Role.find({ _id: { $in: req.user.roles } });
-  //         const isAdmin = userRoles.some(
-  //           (role: { name: string }) =>
-  //             role.name === "admin" || role.name === "super-admin"
-  //         );
-  //         if (isAdmin) {
-  //           return next();
-  //         }
-  //       }
-
-  //       // Allow review owner to proceed
-  //       if (review.user.id.toString() === req.user.id) {
-  //         return next();
-  //       }
-
-  //       // If the user is neither the owner nor an admin, deny access
-  //       return next(
-  //         new AppError("You don't have permission to perform this action", 403)
-  //       );
-  //     } catch (error) {
-  //       next(error);
-  //     }
-  //   };
-  // };
   updateReview = async (
     req: Request,
     res: Response,
@@ -133,7 +124,36 @@ class ReviewsController extends BaseController<IReview> {
       next(error);
     }
   };
-  deleteReview = this.deleteOne();
+  deleteReview = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const review = await Review.findById(req.params.id);
+      if (!review) {
+        return next(new AppError("Review not found", 404));
+      }
+
+      // Remove review from user's reviews array
+      await User.findByIdAndUpdate(review.user, {
+        $pull: { reviews: review._id },
+      });
+      await Product.findByIdAndUpdate(review.product, {
+        $pull: { reviews: review._id },
+      });
+
+      // Delete the review
+      await Review.findByIdAndDelete(review._id);
+
+      res.status(204).json({
+        status: "success",
+        data: null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
   togglePublish = async (
     req: Request,
     res: Response,
@@ -182,6 +202,36 @@ class ReviewsController extends BaseController<IReview> {
         } now`,
         data: review,
       });
+    } catch (error) {
+      next(error);
+    }
+  };
+  getUserReviews = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      req.query.user = req.params.id;
+      req.query.isPublished = "true";
+      req.query.isVerified = "true";
+
+      return await this.getAll()(req, res, next);
+    } catch (error) {
+      next(error);
+    }
+  };
+  getProductReviews = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      req.query.product = req.params.id;
+      req.query.isPublished = "true";
+      req.query.isVerified = "true";
+
+      return await this.getAll()(req, res, next);
     } catch (error) {
       next(error);
     }

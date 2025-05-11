@@ -7,6 +7,7 @@ import addressRouter from "./address-routes";
 import favoritesRouter from "./favorites-routes";
 import UserController from "../../controllers/user/user";
 import { PermissionAction, ResourceType } from "../../models/user/permission";
+import mongoose from "mongoose";
 
 const router = Router({
   mergeParams: true,
@@ -24,7 +25,11 @@ const user = new UserController();
 
 // Authentication routes (public)
 router.post("/send-code", auth.sendVerificationCode as RequestHandler);
-router.post("/verify-code", auth.verifyCode as RequestHandler);
+router.post(
+  "/verify-code",
+  auth.verifyCode as RequestHandler,
+  auth.confirmLogin as RequestHandler
+);
 router.post("/refresh-token", auth.refreshToken as RequestHandler);
 
 // Protected routes
@@ -32,6 +37,7 @@ router.use(auth.protect as RequestHandler);
 
 // User management routes
 router.post("/logout-all", auth.logoutAll as RequestHandler);
+router.post("/logout", auth.logout as RequestHandler);
 
 router
   .route("/me")
@@ -56,6 +62,25 @@ router
     ]) as RequestHandler,
     user.deleteMe as RequestHandler
   );
+
+router.patch(
+  "/change-phone",
+  auth.hasAnyPermission([
+    { action: PermissionAction.UPDATE, resource: ResourceType.USER },
+    { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+  ]) as RequestHandler,
+  user.changePhone as RequestHandler,
+  auth.sendVerificationCode as RequestHandler
+);
+router.post(
+  "/change-phone/verify-code",
+  auth.hasAnyPermission([
+    { action: PermissionAction.UPDATE, resource: ResourceType.USER },
+    { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+  ]) as RequestHandler,
+  auth.verifyCode as RequestHandler,
+  auth.confirmPhoneChange as RequestHandler
+);
 
 // Admin route to get all users
 router.get(
@@ -162,17 +187,27 @@ router
     user.getUserByID as RequestHandler
   )
   .patch(
-    auth.hasAnyPermission([
-      { action: PermissionAction.UPDATE, resource: ResourceType.USER },
-      { action: PermissionAction.MANAGE, resource: ResourceType.USER },
-    ]) as RequestHandler,
+    auth.hasAnyPermission(
+      [
+        { action: PermissionAction.UPDATE, resource: ResourceType.USER },
+        { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+      ],
+      async (req) => {
+        return new mongoose.Types.ObjectId(req.params.id);
+      }
+    ) as RequestHandler,
     user.updateUser as RequestHandler
   )
   .delete(
-    auth.hasAnyPermission([
-      { action: PermissionAction.DELETE, resource: ResourceType.USER },
-      { action: PermissionAction.MANAGE, resource: ResourceType.USER },
-    ]) as RequestHandler,
+    auth.hasAnyPermission(
+      [
+        { action: PermissionAction.DELETE, resource: ResourceType.USER },
+        { action: PermissionAction.MANAGE, resource: ResourceType.USER },
+      ],
+      async (req) => {
+        return new mongoose.Types.ObjectId(req.params.id);
+      }
+    ) as RequestHandler,
     user.deleteUser as RequestHandler
   );
 

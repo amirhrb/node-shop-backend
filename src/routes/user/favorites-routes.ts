@@ -18,7 +18,7 @@ router
       { action: PermissionAction.CREATE, resource: ResourceType.FAVORITE },
       { action: PermissionAction.MANAGE, resource: ResourceType.FAVORITE },
     ]) as RequestHandler,
-    favorite.addFavorite as RequestHandler
+    favorite.toggleFavorite as RequestHandler
   )
   .get(
     auth.hasAnyPermission([
@@ -35,6 +35,12 @@ router
     favorite.deleteAllFavorites as RequestHandler
   );
 
-router.delete("/:productId", favorite.deleteFavorite as RequestHandler);
+router.delete(
+  "/:productId",
+  auth.hasAnyPermission([
+    { action: PermissionAction.DELETE, resource: ResourceType.FAVORITE },
+  ]) as RequestHandler,
+  favorite.deleteFavorite as RequestHandler
+);
 
 export default router;

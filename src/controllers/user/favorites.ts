@@ -9,12 +9,13 @@ class FavoritesController extends BaseController<IFavorites> {
     super(Favorite);
   }
 
-  addFavorite = async (
+  toggleFavorite = async (
     req: Request,
     res: Response,
     next: NextFunction
   ): Promise<void> => {
     const { productId } = req.body;
+
     if (!productId) {
       return next(new AppError("Product id is required", 400));
     }
@@ -41,9 +42,16 @@ class FavoritesController extends BaseController<IFavorites> {
         favorite = favorite[0];
       } else {
         // Check if the product already exists in the products array
-        if (!favorite.products.includes(productId)) {
+        if (favorite.products.includes(productId)) {
+          favorite.products = favorite.products.filter(
+            (product) => product.toString() !== productId.toString()
+          );
+          await favorite.save({ session });
+        } else if (!favorite.products.includes(productId)){
           favorite.products.push(productId);
           await favorite.save({ session });
+        } else {
+          next(new AppError("Unknown error occurred", 400))
         }
       }
 

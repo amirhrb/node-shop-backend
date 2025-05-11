@@ -14,10 +14,13 @@ export interface IUser extends Document {
   lastname: string;
   email?: string;
   phone: string;
+  newPhone: string;
+  previousPhone: string;
   roles: mongoose.Types.ObjectId[];
   permissions: mongoose.Types.ObjectId[];
   profile?: mongoose.Types.ObjectId;
-  address?: string;
+  addresses: mongoose.Types.ObjectId[];
+  reviews: mongoose.Types.ObjectId[];
   active: boolean;
   loginAttempts?: number;
   isVerified: boolean;
@@ -27,6 +30,7 @@ export interface IUser extends Document {
   phoneVerificationExpires?: Date;
   createPhoneVerificationToken: () => string;
   checkLogin: () => boolean;
+  confirmPhoneChange: () => Promise<void>;
 }
 
 const userSchema: Schema<IUser> = new mongoose.Schema(
@@ -64,14 +68,26 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
       required: [true, "Phone number is required"],
       validate: [validator.isMobilePhone, "Phone number is not valid"],
     },
+    newPhone: {
+      type: String,
+      unique: true,
+      sparse: true,
+      validate: [validator.isMobilePhone, "Phone number is not valid"],
+    },
+    previousPhone: {
+      type: String,
+      select: false,
+    },
     profile: {
       type: mongoose.Types.ObjectId,
       ref: "Profile",
     },
-    address: {
-      type: mongoose.Types.ObjectId,
-      ref: "Address",
-    },
+    addresses: [
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "Address",
+      },
+    ],
     roles: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -82,6 +98,12 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Permission",
+      },
+    ],
+    reviews: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Review",
       },
     ],
     active: {
@@ -128,6 +150,49 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
 );
 
 userSchema.index({ createdAt: -1 });
+
+userSchema.pre("save", async function (next) {
+  // Skip if phone is not modified or it's a new document
+  if (!this.isModified("phone") || this.isNew) {
+    return next();
+  }
+
+  // Store the new phone number in newPhone
+  this.newPhone = this.phone;
+  // Revert phone to the original value
+  this.phone = this.previousPhone;
+  // Set isVerified to false
+  this.isVerified = false;
+
+  // Set expiration for newPhone
+  setTimeout(async () => {
+    try {
+      if (this.newPhone) {
+        // If newPhone still exists after 15 mins, remove it
+        await User.findByIdAndUpdate(this._id, {
+          $unset: { newPhone: 1 },
+        });
+      }
+    } catch (error) {
+      console.error("Error clearing newPhone:", error);
+    }
+  }, 15 * 60 * 1000); // 15 minutes
+
+  next();
+});
+
+// Add this method to handle successful verification
+userSchema.methods.confirmPhoneChange = async function (): Promise<void> {
+  if (this.newPhone && this.isVerified) {
+    // Store current phone as previous
+    this.previousPhone = this.phone;
+    // Update main phone number
+    this.phone = this.newPhone;
+    // Clear alternate phone
+    this.newPhone = undefined;
+    await this.save();
+  }
+};
 
 userSchema.pre("save", async function (next) {
   if (!this.isNew) return next();
@@ -194,6 +259,9 @@ userSchema.pre("save", async function (next) {
 
     // Set the profile field in the user document
     this.profile = this._id as mongoose.Types.ObjectId;
+
+    // when user is created prev and active must be the same
+    this.previousPhone = this.phone;
 
     next();
   } catch (error: unknown) {

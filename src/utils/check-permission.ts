@@ -13,30 +13,46 @@ export interface PermissionCheck {
   conditions?: PermissionConditions; // Prefix with underscore to indicate unused
 }
 
-interface ResourceData {
+export interface ResourceData {
   ownerId?: mongoose.Types.ObjectId;
   status?: string;
   department?: string;
 }
 
 const checkCondition = (
-  condition: PermissionConditions,
+  conditions: PermissionConditions,
   user: IUser,
   resource?: ResourceData
 ): boolean => {
-  if (condition.ownerOnly && resource?.ownerId) {
-    return (user._id as mongoose.Types.ObjectId).equals(resource.ownerId);
+  // If no condition is provided, access is granted
+  if (!conditions) return true;
+
+  // Check all conditions and combine results
+  const checks: boolean[] = [];
+
+  // Owner check
+  if (conditions.ownerOnly) {
+    if (!resource?.ownerId) return false; // Fail if ownerId is required but not provided
+    checks.push((user._id as mongoose.Types.ObjectId).equals(resource.ownerId));
   }
 
-  if (condition.department && resource?.department) {
-    return condition.department.includes(resource.department);
+  // Department check
+  if (conditions.department) {
+    if (!resource?.department) return false; // Fail if department is required but not provided
+    checks.push(conditions.department.includes(resource.department));
   }
 
-  if (condition.status && resource?.status) {
-    return condition.status.includes(resource.status);
+  // Status check
+  if (conditions.status) {
+    if (!resource?.status) return false; // Fail if status is required but not provided
+    checks.push(conditions.status.includes(resource.status));
   }
 
-  return true;
+  // If no checks were performed, return true
+  if (checks.length === 0) return true;
+
+  // All specified conditions must be met
+  return checks.every(Boolean);
 };
 
 export const hasPermission = async (
@@ -48,7 +64,10 @@ export const hasPermission = async (
   if (!user.roles || user.roles.length === 0) {
     return false;
   }
-  const populatedUser = await User.findById(user._id).populate({
+
+  const populatedUser = await User.findById(user._id).populate<{
+    permissions: IPermission[];
+  }>({
     path: "permissions",
     select: "name action resource conditions description",
   });
@@ -59,19 +78,17 @@ export const hasPermission = async (
 
   // Find all permissions for the user's roles that match the action and resource
   const matchingPermissions = populatedUser.permissions.filter((permission) => {
-    const permissionDoc = permission as unknown as IPermission;
-
     // If user has SUPER permission for this resource, it grants access to any action
     if (
-      permissionDoc.resource === resource &&
-      permissionDoc.action === PermissionAction.SUPER
+      permission.resource === resource &&
+      permission.action === PermissionAction.SUPER
     ) {
       return true;
     }
 
     // Traditional permission match
     return (
-      permissionDoc.action === action && permissionDoc.resource === resource
+      permission.action === action && permission.resource === resource
     );
   });
 
@@ -81,17 +98,26 @@ export const hasPermission = async (
 
   // Check if any permission has conditions
   const permissionsWithConditions = matchingPermissions.filter(
-    (permission) => (permission as unknown as IPermission).conditions
+    (permission) => permission.conditions
   );
 
   if (permissionsWithConditions.length === 0) {
     return true;
   }
 
-  // Check if conditions are met
-  return permissionsWithConditions.some((permission) => {
-    const permissionConditions = (permission as unknown as IPermission)
-      .conditions as PermissionConditions;
-    return checkCondition(permissionConditions, user, resourceData);
-  });
+  // Check for MANAGE permissions with ownerOnly condition first
+  const hasManagePermission = permissionsWithConditions.some((permission) => 
+    permission.action === PermissionAction.MANAGE && 
+    permission.conditions?.ownerOnly && 
+    checkCondition(permission.conditions, user, resourceData)
+  );
+
+  if (hasManagePermission) {
+    return true;
+  }
+
+  // Check if any other conditions are met
+  return permissionsWithConditions.some((permission) => 
+    checkCondition(permission.conditions as PermissionConditions, user, resourceData)
+  );
 };

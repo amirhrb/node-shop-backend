@@ -74,6 +74,10 @@ reviewsSchema.pre(/^find/, function (next): void {
       path: "user",
       select: "name email profile.photo",
     },
+    {
+      path: "product",
+      select: "name price category owner ogImage",
+    },
   ]);
 
   next();
