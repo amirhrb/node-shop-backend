@@ -52,12 +52,35 @@ Create a `.env` file in the root directory with the following variables:
 NODE_ENV=development
 PORT=5000
 MONGO_URI=mongodb://localhost:27017/db_name
-JWT_SECRET=your_jwt_secret
-JWT_EXPIRES_IN=90d
-JWT_COOKIE_EXPIRES_IN=90
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+FRONT_END_URL=http://localhost:3000
+HASH_SALT=12
+JWT_SECRET=your-jwt-secret
+JWT_REFRESH_SECRET=your-jwt-refresh-secret
+JWT_ACCESS_EXPIRES_IN=1d
+JWT_REFRESH_EXPIRES_IN=7d
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=dp9fuikel
+CLOUDINARY_API_KEY=719141447537178
+CLOUDINARY_API_SECRET=I7w3FiyF12U3AB45hBKxqK6Z8iA
+# Zarinpal Configuration
+ZARINPAL_MERCHANT_ID=6131f123-3671-4fca-ab3e-abcf0e09280a
+ZARINPAL_IS_SANDBOX=true
+# SMS Configuration (Melipayamak)
+MELIPAYAMAK_USERNAME=your-melipayamak-username
+MELIPAYAMAK_PASSWORD=your-melipayamak-password
+MELIPAYAMAK_NUMBER=your-melipayamak-number
+# Super Admin Configuration
+SUPER_ADMIN_USERNAME=amir
+SUPER_ADMIN_FIRST_NAME=amir
+SUPER_ADMIN_LAST_NAME=hhh
+SUPER_ADMIN_EMAIL=superadmin@dev.com
+SUPER_ADMIN_PHONE=09121111111
+# Admin Configuration
+ADMIN_USERNAME=admin
+ADMIN_FIRST_NAME=Admin
+ADMIN_LAST_NAME=User
+ADMIN_EMAIL=admin@dev.com
+ADMIN_PHONE=09122222222
 ```
 
 ## Installation
@@ -65,8 +88,8 @@ CLOUDINARY_API_SECRET=your_api_secret
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/backend-sms.git
-cd backend-sms
+git clone https://github.com/amirhrb/node-shop-backend
+cd node-shop-backend
 ```
 
 2. Install dependencies:
@@ -93,7 +116,6 @@ npm start
 The API documentation is available in the Postman collection:
 
 - `shop-api.postman_collection.json`
-- `shop-api.postman_environment.json`
 
 ### Key Endpoints
 
@@ -158,14 +180,15 @@ The API implements comprehensive error handling:
 
 ```
 src/
-├── config/         # Configuration files
 ├── controllers/    # Route controllers
 ├── middleware/     # Custom middleware
 ├── models/         # Database models
 ├── routes/         # API routes
 ├── seed/          # Database seeding
 ├── types/         # TypeScript types
+├── test/         # Tests
 ├── utils/         # Utility functions
+├── views/         # SMS templates
 ├── app.ts         # Express app setup
 └── server.ts      # Server entry point
 ```
