@@ -41,15 +41,12 @@ class AppError extends Error {
     type: ErrorType = ErrorType.INTERNAL
   ) {
     super(message);
-
     this.statusCode = statusCode;
     this.status = `${statusCode}`.startsWith("4") ? "fail" : "error";
-    this.isOperational = true; // Used to differentiate operational vs programming errors
+    this.isOperational = true;
     this.type = type;
     this.details = [{ message }];
-
     Error.captureStackTrace(this, this.constructor);
-    this.logError();
   }
 
   private logError(): void {

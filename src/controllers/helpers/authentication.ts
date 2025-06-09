@@ -471,9 +471,8 @@ class Authentication {
 
       if (!token) {
         return next(
-          new AppError(
-            "You are not logged in! Please log in to get access.",
-            401
+          AppError.unauthorized(
+            "You are not logged in! Please log in to get access."
           )
         );
       }
@@ -561,7 +560,12 @@ class Authentication {
 
   hasAnyPermission(
     permissions: { action: PermissionAction; resource: ResourceType }[],
-    getResourceOwnerId?: (req: Request) => Promise<mongoose.Types.ObjectId | undefined> | mongoose.Types.ObjectId | undefined
+    getResourceOwnerId?: (
+      req: Request
+    ) =>
+      | Promise<mongoose.Types.ObjectId | undefined>
+      | mongoose.Types.ObjectId
+      | undefined
   ) {
     return async (
       req: Request,
@@ -573,14 +577,16 @@ class Authentication {
         if (!user) {
           return next(
             new AppError(
-              "You are not logged in! Please log in to get access.",
+              "You were not found! Please log in to get access.",
               401
             )
           );
         }
 
         // Get the resource owner ID using the provided function
-        const ownerId = getResourceOwnerId ? await getResourceOwnerId(req) : undefined;
+        const ownerId = getResourceOwnerId
+          ? await getResourceOwnerId(req)
+          : undefined;
 
         const resourceData: ResourceData = {
           ownerId,

@@ -16,7 +16,7 @@ class UserController extends BaseController<IUser> {
     next: NextFunction
   ): Promise<void> => {
     req.params.id = req.user.id;
-    return await this.getOne({ path: "profile address" })(req, res, next);
+    return await this.getOne({ path: "profile addresses" })(req, res, next);
   };
 
   updateMe = async (
@@ -68,7 +68,7 @@ class UserController extends BaseController<IUser> {
         );
       }
 
-      const {  phone } = req.body;
+      const { phone } = req.body;
 
       const { id } = req.user;
       const user = await User.findByIdAndUpdate(
@@ -84,7 +84,7 @@ class UserController extends BaseController<IUser> {
         return next(new AppError("User not found", 404));
       }
 
-      next() // go for sending verification code to user
+      next(); // go for sending verification code to user
     } catch (error) {
       next(error);
     }
@@ -125,9 +125,9 @@ class UserController extends BaseController<IUser> {
       delete req.body.phoneVerificationToken;
       delete req.body.phoneVerificationExpires;
       delete req.body.phone;
-      delete req.body.previousPhone
-      delete req.body.newPhone
-      delete req.body.email
+      delete req.body.previousPhone;
+      delete req.body.newPhone;
+      delete req.body.email;
 
       return await this.updateOne()(req, res, next);
     } catch (error) {

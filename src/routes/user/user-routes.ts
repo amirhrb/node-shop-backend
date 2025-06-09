@@ -30,10 +30,11 @@ router.post(
   auth.verifyCode as RequestHandler,
   auth.confirmLogin as RequestHandler
 );
-router.post("/refresh-token", auth.refreshToken as RequestHandler);
 
 // Protected routes
 router.use(auth.protect as RequestHandler);
+
+router.post("/refresh-token", auth.refreshToken as RequestHandler);
 
 // User management routes
 router.post("/logout-all", auth.logoutAll as RequestHandler);

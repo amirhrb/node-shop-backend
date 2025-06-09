@@ -44,7 +44,7 @@ const profileSchema: Schema<IProfile> = new mongoose.Schema(
     },
     gender: {
       type: String,
-      enum: ["male", "female", "other", "prefer not to say"],
+      enum: ["male", "female", "other", "prefer_not_to_say"],
     },
     occupation: {
       type: String,
